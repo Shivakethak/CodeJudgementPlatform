@@ -23,7 +23,8 @@ function getDefaultDb() {
     contests: [],
     discussions: [],
     notes: [],
-    playlists: []
+    playlists: [],
+    refreshTokens: []
   };
 }
 
@@ -45,7 +46,8 @@ function loadDb() {
     contests: Array.isArray(parsed.contests) ? parsed.contests : [],
     discussions: Array.isArray(parsed.discussions) ? parsed.discussions : [],
     notes: Array.isArray(parsed.notes) ? parsed.notes : [],
-    playlists: Array.isArray(parsed.playlists) ? parsed.playlists : []
+    playlists: Array.isArray(parsed.playlists) ? parsed.playlists : [],
+    refreshTokens: Array.isArray(parsed.refreshTokens) ? parsed.refreshTokens : []
   };
 }
 
@@ -79,6 +81,10 @@ function getNotes() {
 
 function getPlaylists() {
   return loadDb().playlists;
+}
+
+function getRefreshTokens() {
+  return loadDb().refreshTokens;
 }
 
 function addUser(user) {
@@ -181,6 +187,35 @@ function updatePlaylist(playlistId, updater) {
   return db.playlists[idx];
 }
 
+function addRefreshToken(tokenRow) {
+  const db = loadDb();
+  db.refreshTokens.push(tokenRow);
+  saveDb(db);
+}
+
+function deleteRefreshToken(tokenId) {
+  const db = loadDb();
+  const before = db.refreshTokens.length;
+  db.refreshTokens = db.refreshTokens.filter((t) => t.id !== tokenId);
+  if (db.refreshTokens.length === before) return false;
+  saveDb(db);
+  return true;
+}
+
+function deleteRefreshTokensByUser(userId) {
+  const db = loadDb();
+  db.refreshTokens = db.refreshTokens.filter((t) => t.userId !== userId);
+  saveDb(db);
+}
+
+function loadRawDb() {
+  return loadDb();
+}
+
+function saveRawDb(db) {
+  saveDb(db);
+}
+
 module.exports = {
   getUsers,
   getSubmissions,
@@ -189,6 +224,7 @@ module.exports = {
   getDiscussions,
   getNotes,
   getPlaylists,
+  getRefreshTokens,
   addUser,
   updateUser,
   addSubmission,
@@ -201,5 +237,10 @@ module.exports = {
   deleteDiscussion,
   upsertNote,
   addPlaylist,
-  updatePlaylist
+  updatePlaylist,
+  addRefreshToken,
+  deleteRefreshToken,
+  deleteRefreshTokensByUser,
+  loadRawDb,
+  saveRawDb
 };

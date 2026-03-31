@@ -4,15 +4,44 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const vm = require("vm");
 const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
 const store = require("./services/store");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "change-this-secret";
+const REFRESH_TOKEN_SECRET = process.env.REFRESH_TOKEN_SECRET || "change-this-refresh-secret";
+const ACCESS_TOKEN_EXPIRES_IN = process.env.ACCESS_TOKEN_EXPIRES_IN || "1d";
+const REFRESH_TOKEN_EXPIRES_IN_DAYS = parseInt(process.env.REFRESH_TOKEN_EXPIRES_IN_DAYS || "7", 10);
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
+app.use((req, _res, next) => {
+  // Basic request logging for audit and debugging.
+  // eslint-disable-next-line no-console
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
+
+const requestBuckets = new Map();
+function rateLimit({ keyPrefix, windowMs, max }) {
+  return (req, res, next) => {
+    const key = `${keyPrefix}:${req.ip}`;
+    const now = Date.now();
+    const bucket = requestBuckets.get(key) || { count: 0, resetAt: now + windowMs };
+    if (now > bucket.resetAt) {
+      bucket.count = 0;
+      bucket.resetAt = now + windowMs;
+    }
+    bucket.count += 1;
+    requestBuckets.set(key, bucket);
+    if (bucket.count > max) {
+      return res.status(429).json({ error: "Too many requests. Please try again shortly." });
+    }
+    return next();
+  };
+}
 
 function parsePagination(req) {
   const page = Math.max(parseInt(req.query.page || "1", 10) || 1, 1);
@@ -50,6 +79,45 @@ function adminOnly(req, res, next) {
   const me = store.getUsers().find((u) => u.id === req.user.id);
   if (!me || !me.isAdmin) return res.status(403).json({ error: "Admin only route" });
   return next();
+}
+
+function issueAccessToken(user) {
+  return jwt.sign({ id: user.id, username: user.username, email: user.email, isAdmin: !!user.isAdmin }, JWT_SECRET, {
+    expiresIn: ACCESS_TOKEN_EXPIRES_IN
+  });
+}
+
+function issueRefreshToken(user) {
+  const tokenId = uuidv4();
+  const refreshToken = jwt.sign({ tokenId, userId: user.id }, REFRESH_TOKEN_SECRET, {
+    expiresIn: `${REFRESH_TOKEN_EXPIRES_IN_DAYS}d`
+  });
+  const tokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_EXPIRES_IN_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  store.addRefreshToken({
+    id: tokenId,
+    userId: user.id,
+    tokenHash,
+    expiresAt,
+    createdAt: new Date().toISOString()
+  });
+  return refreshToken;
+}
+
+function validateAdminProblemPayload(payload) {
+  if (!payload.title || !payload.statement || !payload.starterCode || !Array.isArray(payload.tests)) {
+    return "title, statement, starterCode, tests are required";
+  }
+  if (!payload.tests.length) return "tests must include at least one case";
+  for (const t of payload.tests) {
+    if (typeof t !== "object" || t === null || !("input" in t) || !("expected" in t)) {
+      return "each test must include input and expected fields";
+    }
+    if ("hidden" in t && typeof t.hidden !== "boolean") {
+      return "test.hidden must be boolean when provided";
+    }
+  }
+  return null;
 }
 
 function safeEqual(a, b) {
@@ -127,7 +195,7 @@ function evaluateCode(problem, code, mode) {
   };
 }
 
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", rateLimit({ keyPrefix: "register", windowMs: 60_000, max: 20 }), async (req, res) => {
   const { username, email, password } = req.body || {};
   if (!username || !email || !password) {
     return res.status(400).json({ error: "username, email, password required" });
@@ -149,17 +217,49 @@ app.post("/api/auth/register", async (req, res) => {
   return res.status(201).json({ message: "Registered successfully", isAdmin: user.isAdmin });
 });
 
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", rateLimit({ keyPrefix: "login", windowMs: 60_000, max: 30 }), async (req, res) => {
   const { email, password } = req.body || {};
   const users = store.getUsers();
   const user = users.find((u) => u.email === email);
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const ok = await bcrypt.compare(password || "", user.passwordHash);
   if (!ok) return res.status(401).json({ error: "Invalid credentials" });
-  const token = jwt.sign({ id: user.id, username: user.username, email: user.email, isAdmin: !!user.isAdmin }, JWT_SECRET, {
-    expiresIn: "1d"
+  const token = issueAccessToken(user);
+  const refreshToken = issueRefreshToken(user);
+  return res.json({
+    token,
+    refreshToken,
+    user: { id: user.id, username: user.username, email: user.email, isAdmin: !!user.isAdmin }
   });
-  return res.json({ token, user: { id: user.id, username: user.username, email: user.email, isAdmin: !!user.isAdmin } });
+});
+
+app.post("/api/auth/refresh", rateLimit({ keyPrefix: "refresh", windowMs: 60_000, max: 60 }), (req, res) => {
+  const refreshToken = String(req.body?.refreshToken || "");
+  if (!refreshToken) return res.status(400).json({ error: "refreshToken is required" });
+  let payload;
+  try {
+    payload = jwt.verify(refreshToken, REFRESH_TOKEN_SECRET);
+  } catch (_err) {
+    return res.status(401).json({ error: "Invalid refresh token" });
+  }
+  const tokenHash = crypto.createHash("sha256").update(refreshToken).digest("hex");
+  const row = store.getRefreshTokens().find((t) => t.id === payload.tokenId && t.userId === payload.userId && t.tokenHash === tokenHash);
+  if (!row) return res.status(401).json({ error: "Refresh token not recognized" });
+  if (new Date(row.expiresAt).getTime() < Date.now()) {
+    store.deleteRefreshToken(row.id);
+    return res.status(401).json({ error: "Refresh token expired" });
+  }
+  const user = store.getUsers().find((u) => u.id === payload.userId);
+  if (!user) return res.status(404).json({ error: "User not found" });
+  store.deleteRefreshToken(row.id);
+  const nextAccessToken = issueAccessToken(user);
+  const nextRefreshToken = issueRefreshToken(user);
+  return res.json({ token: nextAccessToken, refreshToken: nextRefreshToken });
+});
+
+app.post("/api/auth/logout", auth, (req, res) => {
+  store.deleteRefreshTokensByUser(req.user.id);
+  return res.json({ message: "Logged out successfully" });
 });
 
 app.get("/api/problems", auth, (req, res) => {
@@ -214,7 +314,7 @@ app.post("/api/submissions/run", auth, (req, res) => {
   return res.json(result);
 });
 
-app.post("/api/submissions", auth, (req, res) => {
+app.post("/api/submissions", auth, rateLimit({ keyPrefix: "submit", windowMs: 60_000, max: 120 }), (req, res) => {
   const { problemId, code, contestId } = req.body || {};
   const problem = store.getProblems().find((p) => p.id === problemId);
   if (!problem) return res.status(404).json({ error: "Problem not found" });
@@ -428,9 +528,8 @@ app.post("/api/playlists/:id/problems", auth, (req, res) => {
 
 app.post("/api/admin/problems", auth, adminOnly, (req, res) => {
   const payload = req.body || {};
-  if (!payload.title || !payload.statement || !payload.starterCode || !Array.isArray(payload.tests)) {
-    return res.status(400).json({ error: "title, statement, starterCode, tests are required" });
-  }
+  const payloadErr = validateAdminProblemPayload(payload);
+  if (payloadErr) return res.status(400).json({ error: payloadErr });
   const problem = {
     id: payload.id || String(payload.title).toLowerCase().replace(/\s+/g, "-"),
     title: payload.title,
@@ -612,6 +711,24 @@ app.get("/api/admin/analytics", auth, adminOnly, (_req, res) => {
     difficultyBreakdown,
     topProblemAttempts
   });
+});
+
+app.get("/api/admin/backup", auth, adminOnly, (_req, res) => {
+  const snapshot = store.loadRawDb();
+  return res.json({
+    generatedAt: new Date().toISOString(),
+    schemaVersion: 1,
+    data: snapshot
+  });
+});
+
+app.post("/api/admin/restore", auth, adminOnly, (req, res) => {
+  const payload = req.body || {};
+  if (!payload.data || typeof payload.data !== "object") {
+    return res.status(400).json({ error: "Restore payload must include data object" });
+  }
+  store.saveRawDb(payload.data);
+  return res.json({ message: "Backup restored" });
 });
 
 app.post("/api/problems/:id/discussions", auth, (req, res) => {

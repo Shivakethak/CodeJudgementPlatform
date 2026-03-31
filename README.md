@@ -5,17 +5,20 @@ AlgoArena is a coding judgment platform inspired by LeetCode, built with Node.js
 ## Features
 
 - User registration and login with JWT authentication
+- Refresh token support with token rotation
 - Problem catalog with difficulty and tags
 - Interactive code editor and submit flow
 - JavaScript code judging against hidden test cases
 - Submission history for each user
 - Leaderboard based on solved problems
+- Admin analytics, backup/restore, contests, discussions, playlists, and notes
 
 ## Tech Stack
 
 - Backend: Express, JWT, bcryptjs
 - Judge: Node `vm` sandbox with timeout
 - Frontend: Vanilla HTML/CSS/JS
+- Testing: Node test runner + Supertest
 
 ## Run Locally
 
@@ -31,6 +34,8 @@ AlgoArena is a coding judgment platform inspired by LeetCode, built with Node.js
    npm run dev
    ```
 
+Optional: copy `.env.example` to `.env` and update secrets.
+
 3. Open:
 
    [http://localhost:3000](http://localhost:3000)
@@ -38,5 +43,5 @@ AlgoArena is a coding judgment platform inspired by LeetCode, built with Node.js
 ## Important Notes
 
 - This is an MVP and currently supports JavaScript submissions only.
-- Data is in memory; restarting the server resets users/submissions.
-- For production, replace in-memory storage with a database and isolate code execution in containers.
+- Data is persisted in `data/db.json` for local development.
+- For full production, migrate to managed DB + isolated code execution containers.

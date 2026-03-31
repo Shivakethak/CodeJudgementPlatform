@@ -1,5 +1,6 @@
 const state = {
   token: localStorage.getItem("token") || "",
+  refreshToken: localStorage.getItem("refreshToken") || "",
   user: JSON.parse(localStorage.getItem("user") || "null"),
   selectedProblemId: null,
   problems: [],
@@ -27,7 +28,16 @@ function setAuth(token, user) {
   state.user = user;
   localStorage.setItem("token", token || "");
   localStorage.setItem("user", JSON.stringify(user || null));
+  if (!token) {
+    state.refreshToken = "";
+    localStorage.setItem("refreshToken", "");
+  }
   renderAuth();
+}
+
+function setRefreshToken(refreshToken) {
+  state.refreshToken = refreshToken || "";
+  localStorage.setItem("refreshToken", state.refreshToken);
 }
 
 function renderAuth() {
@@ -79,7 +89,7 @@ async function loadAdminAnalytics() {
 }
 
 async function api(path, options = {}) {
-  const res = await fetch(path, {
+  let res = await fetch(path, {
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -87,6 +97,27 @@ async function api(path, options = {}) {
       ...(options.headers || {})
     }
   });
+  if (res.status === 401 && state.refreshToken) {
+    const refreshRes = await fetch("/api/auth/refresh", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: state.refreshToken })
+    });
+    if (refreshRes.ok) {
+      const refreshed = await refreshRes.json();
+      state.token = refreshed.token;
+      setRefreshToken(refreshed.refreshToken);
+      localStorage.setItem("token", state.token);
+      res = await fetch(path, {
+        ...options,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: state.token ? `Bearer ${state.token}` : "",
+          ...(options.headers || {})
+        }
+      });
+    }
+  }
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || "Request failed");
   return data;
@@ -116,6 +147,7 @@ document.getElementById("login-btn").addEventListener("click", async () => {
       body: JSON.stringify({ email, password })
     });
     setAuth(data.token, data.user);
+    setRefreshToken(data.refreshToken);
     authMsg.textContent = "Logged in.";
   } catch (err) {
     authMsg.textContent = err.message;
@@ -123,6 +155,9 @@ document.getElementById("login-btn").addEventListener("click", async () => {
 });
 
 document.getElementById("logout-btn").addEventListener("click", () => {
+  if (state.token) {
+    api("/api/auth/logout", { method: "POST" }).catch(() => null);
+  }
   setAuth("", null);
   authMsg.textContent = "Logged out.";
 });
@@ -391,8 +426,17 @@ async function loadContests() {
         } catch (_err) {
           // Ignore duplicate joins.
         }
+        try {
+          const contestProblems = await api(`/api/contests/${contest.id}/problems`);
+          const lockedCount = (contestProblems.items || []).filter((x) => x.locked).length;
+          const msg = contestProblems.unlocked
+            ? `Joined contest: ${contest.title}. Contest problems are unlocked.`
+            : `Joined contest: ${contest.title}. ${lockedCount} problem(s) currently locked until contest is live.`;
+          document.getElementById("judge-result").textContent = msg;
+        } catch (err) {
+          document.getElementById("judge-result").textContent = err.message;
+        }
         loadContestLeaderboard(contest.id);
-        document.getElementById("judge-result").textContent = `Joined contest: ${contest.title}`;
       });
       list.appendChild(li);
     });
