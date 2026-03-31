@@ -14,6 +14,26 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public"));
 
+function parsePagination(req) {
+  const page = Math.max(parseInt(req.query.page || "1", 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10) || 20, 1), 100);
+  return { page, limit };
+}
+
+function paginateArray(items, page, limit) {
+  const total = items.length;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const safePage = Math.min(page, totalPages);
+  const offset = (safePage - 1) * limit;
+  return {
+    items: items.slice(offset, offset + limit),
+    page: safePage,
+    limit,
+    total,
+    totalPages
+  };
+}
+
 function auth(req, res, next) {
   const header = req.headers.authorization || "";
   const token = header.startsWith("Bearer ") ? header.slice(7) : "";
@@ -143,16 +163,27 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 app.get("/api/problems", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
+  const search = String(req.query.search || "").trim().toLowerCase();
+  const difficulty = String(req.query.difficulty || "ALL");
   const me = store.getUsers().find((u) => u.id === req.user.id);
   const solvedSet = new Set(Array.isArray(me?.solved) ? me.solved : []);
-  const list = store.getProblems().map((p) => ({
+  const list = store
+    .getProblems()
+    .map((p) => ({
     id: p.id,
     title: p.title,
     difficulty: p.difficulty,
     tags: p.tags,
     solved: solvedSet.has(p.id)
-  }));
-  return res.json(list);
+    }))
+    .filter((p) => {
+      const okSearch =
+        !search || p.title.toLowerCase().includes(search) || p.tags.join(" ").toLowerCase().includes(search);
+      const okDifficulty = difficulty === "ALL" || p.difficulty === difficulty;
+      return okSearch && okDifficulty;
+    });
+  return res.json(paginateArray(list, page, limit));
 });
 
 app.get("/api/problems/:id", auth, (req, res) => {
@@ -189,6 +220,19 @@ app.post("/api/submissions", auth, (req, res) => {
   if (!problem) return res.status(404).json({ error: "Problem not found" });
   const codeErr = validateSubmissionCode(code);
   if (codeErr) return res.status(400).json({ error: codeErr });
+  if (contestId) {
+    const contest = store.getContests().find((c) => c.id === contestId);
+    if (!contest) return res.status(404).json({ error: "Contest not found" });
+    const now = Date.now();
+    const start = new Date(contest.startTime).getTime();
+    const end = new Date(contest.endTime).getTime();
+    if (now < start || now > end) return res.status(403).json({ error: "Contest is not live" });
+    const joined = (contest.participants || []).some((p) => p.userId === req.user.id);
+    if (!joined) return res.status(403).json({ error: "Join contest before submitting" });
+    if (!contest.problemIds.includes(problemId)) {
+      return res.status(403).json({ error: "Problem is not part of this contest" });
+    }
+  }
 
   const result = evaluateCode(problem, code, "submit");
   const submission = {
@@ -216,27 +260,30 @@ app.post("/api/submissions", auth, (req, res) => {
 });
 
 app.get("/api/submissions/me", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const mine = store
     .getSubmissions()
     .filter((s) => s.userId === req.user.id)
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return res.json(mine);
+  return res.json(paginateArray(mine, page, limit));
 });
 
-app.get("/api/leaderboard", auth, (_req, res) => {
+app.get("/api/leaderboard", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const board = store
     .getUsers()
     .map((u) => ({ username: u.username, solved: Array.isArray(u.solved) ? u.solved.length : 0 }))
     .sort((a, b) => b.solved - a.solved || a.username.localeCompare(b.username));
-  return res.json(board);
+  return res.json(paginateArray(board, page, limit));
 });
 
-app.get("/api/users", auth, (_req, res) => {
+app.get("/api/users", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const users = store
     .getUsers()
     .map((u) => ({ username: u.username, solved: Array.isArray(u.solved) ? u.solved.length : 0 }))
     .sort((a, b) => b.solved - a.solved || a.username.localeCompare(b.username));
-  return res.json(users);
+  return res.json(paginateArray(users, page, limit));
 });
 
 app.get("/api/users/:username", auth, (req, res) => {
@@ -273,6 +320,7 @@ app.get("/api/daily-challenge", auth, (_req, res) => {
 });
 
 app.get("/api/recommendations", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const me = store.getUsers().find((u) => u.id === req.user.id);
   if (!me) return res.status(404).json({ error: "User not found" });
   const solved = new Set(Array.isArray(me.solved) ? me.solved : []);
@@ -286,14 +334,13 @@ app.get("/api/recommendations", auth, (req, res) => {
     return { ...p, score };
   });
   scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
-  return res.json(
-    scored.slice(0, 8).map((p) => ({
+  const result = scored.map((p) => ({
       id: p.id,
       title: p.title,
       difficulty: p.difficulty,
       tags: p.tags
-    }))
-  );
+    }));
+  return res.json(paginateArray(result, page, limit));
 });
 
 app.get("/api/me/stats", auth, (req, res) => {
@@ -343,11 +390,12 @@ app.put("/api/problems/:id/note", auth, (req, res) => {
 });
 
 app.get("/api/playlists", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const mine = store
     .getPlaylists()
     .filter((p) => p.userId === req.user.id)
     .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
-  return res.json(mine);
+  return res.json(paginateArray(mine, page, limit));
 });
 
 app.post("/api/playlists", auth, (req, res) => {
@@ -432,7 +480,8 @@ app.post("/api/contests", auth, adminOnly, (req, res) => {
   return res.status(201).json(contest);
 });
 
-app.get("/api/contests", auth, (_req, res) => {
+app.get("/api/contests", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const now = Date.now();
   const contests = store.getContests().map((contest) => {
     const start = new Date(contest.startTime).getTime();
@@ -448,7 +497,7 @@ app.get("/api/contests", auth, (_req, res) => {
       msToEnd: Math.max(0, end - now)
     };
   });
-  return res.json(contests);
+  return res.json(paginateArray(contests, page, limit));
 });
 
 app.post("/api/contests/:id/join", auth, (req, res) => {
@@ -464,6 +513,7 @@ app.post("/api/contests/:id/join", auth, (req, res) => {
 });
 
 app.get("/api/contests/:id/leaderboard", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const contest = store.getContests().find((c) => c.id === req.params.id);
   if (!contest) return res.status(404).json({ error: "Contest not found" });
   const start = new Date(contest.startTime).getTime();
@@ -491,10 +541,34 @@ app.get("/api/contests/:id/leaderboard", auth, (req, res) => {
     }))
     .sort((a, b) => b.solved - a.solved || a.penalties - b.penalties || a.username.localeCompare(b.username));
 
-  return res.json(board);
+  return res.json(paginateArray(board, page, limit));
+});
+
+app.get("/api/contests/:id/problems", auth, (req, res) => {
+  const contest = store.getContests().find((c) => c.id === req.params.id);
+  if (!contest) return res.status(404).json({ error: "Contest not found" });
+  const now = Date.now();
+  const start = new Date(contest.startTime).getTime();
+  const end = new Date(contest.endTime).getTime();
+  const joined = (contest.participants || []).some((p) => p.userId === req.user.id);
+  const unlocked = joined && now >= start && now <= end;
+  const byId = new Map(store.getProblems().map((p) => [p.id, p]));
+  const items = contest.problemIds.map((id) => {
+    const p = byId.get(id);
+    if (!p) return { id, locked: true };
+    return {
+      id: p.id,
+      title: unlocked ? p.title : "Locked Problem",
+      difficulty: unlocked ? p.difficulty : "Locked",
+      tags: unlocked ? p.tags : [],
+      locked: !unlocked
+    };
+  });
+  return res.json({ contestId: contest.id, unlocked, items });
 });
 
 app.get("/api/problems/:id/discussions", auth, (req, res) => {
+  const { page, limit } = parsePagination(req);
   const items = store
     .getDiscussions()
     .filter((d) => d.problemId === req.params.id)
@@ -502,7 +576,42 @@ app.get("/api/problems/:id/discussions", auth, (req, res) => {
       if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
       return a.createdAt < b.createdAt ? 1 : -1;
     });
-  return res.json(items);
+  return res.json(paginateArray(items, page, limit));
+});
+
+app.get("/api/admin/analytics", auth, adminOnly, (_req, res) => {
+  const users = store.getUsers();
+  const submissions = store.getSubmissions();
+  const problems = store.getProblems();
+  const contests = store.getContests();
+  const discussions = store.getDiscussions();
+  const acceptedCount = submissions.filter((s) => s.status === "Accepted").length;
+  const difficultyBreakdown = problems.reduce(
+    (acc, p) => {
+      acc[p.difficulty] = (acc[p.difficulty] || 0) + 1;
+      return acc;
+    },
+    { Easy: 0, Medium: 0, Hard: 0 }
+  );
+  const topProblemAttempts = [...problems]
+    .map((p) => ({
+      problemId: p.id,
+      attempts: submissions.filter((s) => s.problemId === p.id).length
+    }))
+    .sort((a, b) => b.attempts - a.attempts)
+    .slice(0, 5);
+  return res.json({
+    totals: {
+      users: users.length,
+      submissions: submissions.length,
+      problems: problems.length,
+      contests: contests.length,
+      discussions: discussions.length
+    },
+    acceptanceRate: submissions.length ? Math.round((acceptedCount / submissions.length) * 100) : 0,
+    difficultyBreakdown,
+    topProblemAttempts
+  });
 });
 
 app.post("/api/problems/:id/discussions", auth, (req, res) => {
@@ -539,7 +648,11 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", app: "AlgoArena" });
 });
 
-app.listen(PORT, () => {
-  // eslint-disable-next-line no-console
-  console.log(`AlgoArena API running at http://localhost:${PORT}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    // eslint-disable-next-line no-console
+    console.log(`AlgoArena API running at http://localhost:${PORT}`);
+  });
+}
+
+module.exports = app;

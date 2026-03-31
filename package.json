@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "test": "node --test tests/*.test.js"
   },
   "keywords": [
     "coding",
@@ -21,5 +22,8 @@
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "supertest": "^7.1.1"
   }
 }

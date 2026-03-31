@@ -43,10 +43,38 @@ function renderAuth() {
     loadDailyChallenge();
     loadRecommendations();
     loadPlaylists();
+    if (state.user.isAdmin) loadAdminAnalytics();
   } else {
     userPill.textContent = "Guest";
     adminPanel.classList.add("hidden");
     dashboard.classList.add("hidden");
+  }
+}
+
+async function loadAdminAnalytics() {
+  if (!state.user?.isAdmin) return;
+  const view = document.getElementById("admin-analytics-view");
+  try {
+    const data = await api("/api/admin/analytics");
+    const lines = [
+      `Users: ${data.totals.users}`,
+      `Problems: ${data.totals.problems}`,
+      `Submissions: ${data.totals.submissions}`,
+      `Contests: ${data.totals.contests}`,
+      `Discussions: ${data.totals.discussions}`,
+      `Acceptance Rate: ${data.acceptanceRate}%`,
+      "",
+      "Difficulty Breakdown:",
+      `Easy: ${data.difficultyBreakdown.Easy}`,
+      `Medium: ${data.difficultyBreakdown.Medium}`,
+      `Hard: ${data.difficultyBreakdown.Hard}`,
+      "",
+      "Top Problem Attempts:"
+    ];
+    (data.topProblemAttempts || []).forEach((row) => lines.push(`- ${row.problemId}: ${row.attempts}`));
+    view.textContent = lines.join("\n");
+  } catch (err) {
+    view.textContent = err.message;
   }
 }
 
@@ -101,7 +129,8 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 
 async function loadProblems() {
   try {
-    state.problems = await api("/api/problems");
+    const data = await api("/api/problems?page=1&limit=200");
+    state.problems = data.items || [];
     renderProblems();
   } catch (err) {
     document.getElementById("problems-list").innerHTML = `<li>${err.message}</li>`;
@@ -225,7 +254,8 @@ document.getElementById("submit-btn").addEventListener("click", () => runOrSubmi
 
 async function loadSubmissions() {
   try {
-    state.submissions = await api("/api/submissions/me");
+    const data = await api("/api/submissions/me?page=1&limit=200");
+    state.submissions = data.items || [];
     renderSubmissions();
   } catch (err) {
     document.getElementById("submissions-list").innerHTML = `<li>${err.message}</li>`;
@@ -273,8 +303,8 @@ async function loadLeaderboard() {
   const list = document.getElementById("leaderboard-list");
   list.innerHTML = "";
   try {
-    const data = await api("/api/leaderboard");
-    data.forEach((entry, idx) => {
+    const data = await api("/api/leaderboard?page=1&limit=100");
+    (data.items || []).forEach((entry, idx) => {
       const li = document.createElement("li");
       li.textContent = `#${idx + 1} ${entry.username} - solved ${entry.solved}`;
       list.appendChild(li);
@@ -292,7 +322,8 @@ async function loadDiscussions() {
     return;
   }
   try {
-    const rows = await api(`/api/problems/${state.selectedProblemId}/discussions`);
+    const rowsResp = await api(`/api/problems/${state.selectedProblemId}/discussions?page=1&limit=100`);
+    const rows = rowsResp.items || [];
     rows.forEach((row) => {
       const li = document.createElement("li");
       const pin = row.pinned ? " [PINNED]" : "";
@@ -348,7 +379,8 @@ async function loadContests() {
   const list = document.getElementById("contests-list");
   list.innerHTML = "";
   try {
-    state.contests = await api("/api/contests");
+    const data = await api("/api/contests?page=1&limit=100");
+    state.contests = data.items || [];
     state.contests.forEach((contest) => {
       const li = document.createElement("li");
       li.innerHTML = `<span class="problem-link">${contest.title}</span> (${contest.status})<div class="muted">${contest.participantCount} participants</div>`;
@@ -384,6 +416,7 @@ function startContestTicker() {
   state.contestTicker = setInterval(async () => {
     try {
       state.contests = await api("/api/contests");
+      state.contests = state.contests.items || [];
       const active = state.contests.find((c) => c.status === "live");
       const text = active
         ? `Live: ${active.title} | Ends in ${formatMs(active.msToEnd)}`
@@ -399,7 +432,8 @@ async function loadContestLeaderboard(contestId) {
   const list = document.getElementById("contest-leaderboard");
   list.innerHTML = "";
   try {
-    const board = await api(`/api/contests/${contestId}/leaderboard`);
+    const boardResp = await api(`/api/contests/${contestId}/leaderboard?page=1&limit=100`);
+    const board = boardResp.items || [];
     board.forEach((row, idx) => {
       const li = document.createElement("li");
       li.textContent = `#${idx + 1} ${row.username} - solved ${row.solved} (penalty ${row.penalties})`;
@@ -446,7 +480,8 @@ async function loadRecommendations() {
   const list = document.getElementById("recommendations-list");
   list.innerHTML = "";
   try {
-    const rows = await api("/api/recommendations");
+    const rowsResp = await api("/api/recommendations?page=1&limit=20");
+    const rows = rowsResp.items || [];
     rows.forEach((r) => {
       const li = document.createElement("li");
       li.innerHTML = `<span class="problem-link">${r.title}</span> (${r.difficulty})<div class="muted">${r.tags.join(", ")}</div>`;
@@ -465,7 +500,8 @@ async function loadPlaylists() {
   list.innerHTML = "";
   select.innerHTML = "";
   try {
-    state.playlists = await api("/api/playlists");
+    const data = await api("/api/playlists?page=1&limit=100");
+    state.playlists = data.items || [];
     state.playlists.forEach((p) => {
       const li = document.createElement("li");
       li.textContent = `${p.name} (${(p.problemIds || []).length} problems): ${(p.problemIds || []).join(", ")}`;
@@ -585,6 +621,10 @@ document.getElementById("export-submissions-btn").addEventListener("click", asyn
   } catch (err) {
     document.getElementById("judge-result").textContent = err.message;
   }
+});
+
+document.getElementById("admin-load-analytics-btn").addEventListener("click", () => {
+  loadAdminAnalytics();
 });
 
 problemSearch.addEventListener("input", (e) => {
