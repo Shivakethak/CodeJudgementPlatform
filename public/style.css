@@ -77,6 +77,19 @@ li {
   color: #93c5fd;
 }
 
+#problem-examples,
+#problem-constraints,
+#problem-hints {
+  margin: 8px 0;
+  font-size: 14px;
+  color: #cbd5e1;
+}
+
+.meta-block-title {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
 .hidden {
   display: none;
 }

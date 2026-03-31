@@ -101,6 +101,7 @@ async function selectProblem(problemId) {
     document.getElementById("problem-title").textContent = p.title;
     document.getElementById("problem-meta").textContent = `${p.difficulty} | ${p.tags.join(", ")}`;
     document.getElementById("problem-statement").textContent = p.statement;
+    renderProblemMetaBlocks(p);
     document.getElementById("code-editor").value = p.starterCode;
     document.getElementById("judge-result").textContent = "";
   } catch (err) {
@@ -108,26 +109,62 @@ async function selectProblem(problemId) {
   }
 }
 
-document.getElementById("submit-btn").addEventListener("click", async () => {
+function formatResult(label, result) {
+  const lines = [`Mode: ${label}`, `Status: ${result.status}`, `Passed: ${result.passed}/${result.total}`, ""];
+  result.details.forEach((d) => {
+    lines.push(`Case ${d.testCase}: ${d.status}`);
+    lines.push(`Input: ${JSON.stringify(d.input)}`);
+    lines.push(`Expected: ${JSON.stringify(d.expected)}`);
+    lines.push(`Actual: ${JSON.stringify(d.actual)}`);
+    lines.push("");
+  });
+  return lines.join("\n");
+}
+
+function renderProblemMetaBlocks(problem) {
+  const examples = document.getElementById("problem-examples");
+  const constraints = document.getElementById("problem-constraints");
+  const hints = document.getElementById("problem-hints");
+
+  examples.innerHTML = `<div class="meta-block-title">Examples</div>${(problem.examples || [])
+    .map(
+      (ex) =>
+        `<div>Input: ${ex.input}<br/>Output: ${ex.output}${ex.explanation ? `<br/>Explanation: ${ex.explanation}` : ""}</div>`
+    )
+    .join("<hr/>")}`;
+
+  constraints.innerHTML = `<div class="meta-block-title">Constraints</div><ul>${(problem.constraints || [])
+    .map((c) => `<li>${c}</li>`)
+    .join("")}</ul>`;
+
+  hints.innerHTML = `<div class="meta-block-title">Hints</div><ul>${(problem.hints || [])
+    .map((h) => `<li>${h}</li>`)
+    .join("")}</ul>`;
+}
+
+async function runOrSubmit(isSubmit) {
   if (!state.selectedProblemId) {
     document.getElementById("judge-result").textContent = "Select a problem first.";
     return;
   }
   try {
     const code = document.getElementById("code-editor").value;
-    const result = await api("/api/submissions", {
+    const result = await api(isSubmit ? "/api/submissions" : "/api/submissions/run", {
       method: "POST",
       body: JSON.stringify({ problemId: state.selectedProblemId, code })
     });
-    const lines = [`Status: ${result.status}`, `Passed: ${result.passed}/${result.total}`, ""];
-    result.details.forEach((d) => lines.push(`Case ${d.testCase}: ${d.status}`));
-    document.getElementById("judge-result").textContent = lines.join("\n");
-    loadSubmissions();
-    loadLeaderboard();
+    document.getElementById("judge-result").textContent = formatResult(isSubmit ? "Submit" : "Run", result);
+    if (isSubmit) {
+      loadSubmissions();
+      loadLeaderboard();
+    }
   } catch (err) {
     document.getElementById("judge-result").textContent = err.message;
   }
-});
+}
+
+document.getElementById("run-btn").addEventListener("click", () => runOrSubmit(false));
+document.getElementById("submit-btn").addEventListener("click", () => runOrSubmit(true));
 
 async function loadSubmissions() {
   const list = document.getElementById("submissions-list");

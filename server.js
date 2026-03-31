@@ -44,6 +44,40 @@ function runUserCode(code, input) {
   return script.runInContext(context, { timeout: 1000 });
 }
 
+function evaluateCode(problem, code) {
+  let passed = 0;
+  const details = [];
+  for (let i = 0; i < problem.tests.length; i += 1) {
+    const test = problem.tests[i];
+    try {
+      const actual = runUserCode(code, test.input);
+      const ok = safeEqual(actual, test.expected);
+      if (ok) passed += 1;
+      details.push({
+        testCase: i + 1,
+        status: ok ? "Accepted" : "Wrong Answer",
+        expected: test.expected,
+        actual,
+        input: test.input
+      });
+    } catch (err) {
+      details.push({
+        testCase: i + 1,
+        status: "Runtime Error",
+        expected: test.expected,
+        actual: String(err.message || err),
+        input: test.input
+      });
+    }
+  }
+  return {
+    status: passed === problem.tests.length ? "Accepted" : "Failed",
+    passed,
+    total: problem.tests.length,
+    details
+  };
+}
+
 app.post("/api/auth/register", async (req, res) => {
   const { username, email, password } = req.body || {};
   if (!username || !email || !password) {
@@ -91,8 +125,20 @@ app.get("/api/problems/:id", auth, (req, res) => {
     difficulty: problem.difficulty,
     tags: problem.tags,
     statement: problem.statement,
+    constraints: problem.constraints || [],
+    examples: problem.examples || [],
+    hints: problem.hints || [],
     starterCode: problem.starterCode
   });
+});
+
+app.post("/api/submissions/run", auth, (req, res) => {
+  const { problemId, code } = req.body || {};
+  const problem = problems.find((p) => p.id === problemId);
+  if (!problem) return res.status(404).json({ error: "Problem not found" });
+  if (!code || typeof code !== "string") return res.status(400).json({ error: "Code is required" });
+  const result = evaluateCode(problem, code);
+  return res.json(result);
 });
 
 app.post("/api/submissions", auth, (req, res) => {
@@ -101,45 +147,21 @@ app.post("/api/submissions", auth, (req, res) => {
   if (!problem) return res.status(404).json({ error: "Problem not found" });
   if (!code || typeof code !== "string") return res.status(400).json({ error: "Code is required" });
 
-  let passed = 0;
-  const details = [];
-  for (let i = 0; i < problem.tests.length; i += 1) {
-    const test = problem.tests[i];
-    try {
-      const actual = runUserCode(code, test.input);
-      const ok = safeEqual(actual, test.expected);
-      if (ok) passed += 1;
-      details.push({
-        testCase: i + 1,
-        status: ok ? "Accepted" : "Wrong Answer",
-        expected: test.expected,
-        actual
-      });
-    } catch (err) {
-      details.push({
-        testCase: i + 1,
-        status: "Runtime Error",
-        expected: test.expected,
-        actual: String(err.message || err)
-      });
-    }
-  }
-
-  const status = passed === problem.tests.length ? "Accepted" : "Failed";
+  const result = evaluateCode(problem, code);
   const submission = {
     id: uuidv4(),
     userId: req.user.id,
     username: req.user.username,
     problemId,
-    status,
-    passed,
-    total: problem.tests.length,
+    status: result.status,
+    passed: result.passed,
+    total: result.total,
     createdAt: new Date().toISOString(),
-    details
+    details: result.details
   };
   store.addSubmission(submission);
 
-  if (status === "Accepted") {
+  if (result.status === "Accepted") {
     store.updateUser(req.user.id, (user) => {
       const solved = Array.isArray(user.solved) ? user.solved : [];
       if (!solved.includes(problemId)) solved.push(problemId);

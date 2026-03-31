@@ -4,6 +4,16 @@ const problems = [
     title: "Two Sum",
     difficulty: "Easy",
     tags: ["Array", "Hash Table"],
+    constraints: ["2 <= nums.length <= 10^4", "-10^9 <= nums[i], target <= 10^9", "Only one valid answer exists."],
+    examples: [
+      {
+        input: "nums = [2,7,11,15], target = 9",
+        output: "[0,1]",
+        explanation: "nums[0] + nums[1] = 9"
+      },
+      { input: "nums = [3,2,4], target = 6", output: "[1,2]" }
+    ],
+    hints: ["Use a hash map to track visited values and their indices."],
     statement:
       "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
     starterCode: `function solve(input) {
@@ -31,6 +41,12 @@ const problems = [
     title: "Valid Parentheses",
     difficulty: "Easy",
     tags: ["String", "Stack"],
+    constraints: ["1 <= s.length <= 10^4", "s consists only of parentheses brackets."],
+    examples: [
+      { input: "s = \"()[]{}\"", output: "true" },
+      { input: "s = \"(]\"", output: "false" }
+    ],
+    hints: ["Use a stack and a closing-to-opening character map."],
     statement:
       "Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.",
     starterCode: `function solve(input) {
@@ -59,6 +75,12 @@ const problems = [
     title: "Binary Search",
     difficulty: "Easy",
     tags: ["Array", "Binary Search"],
+    constraints: ["1 <= nums.length <= 10^4", "nums is sorted in ascending order.", "All integers are unique."],
+    examples: [
+      { input: "nums = [-1,0,3,5,9,12], target = 9", output: "4" },
+      { input: "nums = [-1,0,3,5,9,12], target = 2", output: "-1" }
+    ],
+    hints: ["Maintain left and right pointers and shrink the range by midpoint."],
     statement:
       "Given a sorted array of integers nums and an integer target, return the index if target is found. Otherwise, return -1.",
     starterCode: `function solve(input) {
