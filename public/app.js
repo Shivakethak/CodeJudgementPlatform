@@ -1,12 +1,21 @@
 const state = {
   token: localStorage.getItem("token") || "",
   user: JSON.parse(localStorage.getItem("user") || "null"),
-  selectedProblemId: null
+  selectedProblemId: null,
+  problems: [],
+  submissions: [],
+  problemPage: 1,
+  submissionPage: 1,
+  pageSize: 6,
+  search: "",
+  difficulty: "ALL"
 };
 
 const authMsg = document.getElementById("auth-msg");
 const userPill = document.getElementById("user-pill");
 const dashboard = document.getElementById("dashboard");
+const problemSearch = document.getElementById("problem-search");
+const difficultyFilter = document.getElementById("difficulty-filter");
 
 function setAuth(token, user) {
   state.token = token;
@@ -23,6 +32,7 @@ function renderAuth() {
     loadProblems();
     loadSubmissions();
     loadLeaderboard();
+    loadProfileStats();
   } else {
     userPill.textContent = "Guest";
     dashboard.classList.add("hidden");
@@ -79,19 +89,44 @@ document.getElementById("logout-btn").addEventListener("click", () => {
 });
 
 async function loadProblems() {
+  try {
+    state.problems = await api("/api/problems");
+    renderProblems();
+  } catch (err) {
+    document.getElementById("problems-list").innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
+function getFilteredProblems() {
+  return state.problems.filter((p) => {
+    const hitSearch =
+      !state.search || p.title.toLowerCase().includes(state.search) || p.tags.join(" ").toLowerCase().includes(state.search);
+    const hitDifficulty = state.difficulty === "ALL" || p.difficulty === state.difficulty;
+    return hitSearch && hitDifficulty;
+  });
+}
+
+function renderProblems() {
   const list = document.getElementById("problems-list");
   list.innerHTML = "";
-  try {
-    const problems = await api("/api/problems");
-    problems.forEach((p) => {
-      const li = document.createElement("li");
-      li.innerHTML = `<span class="problem-link">${p.title}</span> (${p.difficulty})`;
-      li.querySelector(".problem-link").addEventListener("click", () => selectProblem(p.id));
-      list.appendChild(li);
-    });
-  } catch (err) {
-    list.innerHTML = `<li>${err.message}</li>`;
+  const filtered = getFilteredProblems();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / state.pageSize));
+  if (state.problemPage > totalPages) state.problemPage = totalPages;
+  const start = (state.problemPage - 1) * state.pageSize;
+  const pageItems = filtered.slice(start, start + state.pageSize);
+
+  pageItems.forEach((p) => {
+    const li = document.createElement("li");
+    const solved = p.solved ? '<span class="status-chip status-solved">Solved</span>' : "";
+    li.innerHTML = `<span class="problem-link">${p.title}</span> (${p.difficulty}) ${solved}<div class="muted">${p.tags.join(", ")}</div>`;
+    li.querySelector(".problem-link").addEventListener("click", () => selectProblem(p.id));
+    list.appendChild(li);
+  });
+
+  if (!pageItems.length) {
+    list.innerHTML = "<li>No problems match your filters.</li>";
   }
+  document.getElementById("problems-page").textContent = `Page ${state.problemPage}/${totalPages}`;
 }
 
 async function selectProblem(problemId) {
@@ -157,6 +192,8 @@ async function runOrSubmit(isSubmit) {
     if (isSubmit) {
       loadSubmissions();
       loadLeaderboard();
+      loadProblems();
+      loadProfileStats();
     }
   } catch (err) {
     document.getElementById("judge-result").textContent = err.message;
@@ -167,18 +204,49 @@ document.getElementById("run-btn").addEventListener("click", () => runOrSubmit(f
 document.getElementById("submit-btn").addEventListener("click", () => runOrSubmit(true));
 
 async function loadSubmissions() {
+  try {
+    state.submissions = await api("/api/submissions/me");
+    renderSubmissions();
+  } catch (err) {
+    document.getElementById("submissions-list").innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
+function renderSubmissions() {
   const list = document.getElementById("submissions-list");
   list.innerHTML = "";
-  try {
-    const data = await api("/api/submissions/me");
-    data.slice(0, 12).forEach((s) => {
-      const li = document.createElement("li");
-      li.textContent = `${s.problemId}: ${s.status} (${s.passed}/${s.total})`;
-      list.appendChild(li);
-    });
-  } catch (err) {
-    list.innerHTML = `<li>${err.message}</li>`;
-  }
+  const totalPages = Math.max(1, Math.ceil(state.submissions.length / state.pageSize));
+  if (state.submissionPage > totalPages) state.submissionPage = totalPages;
+  const start = (state.submissionPage - 1) * state.pageSize;
+  const pageItems = state.submissions.slice(start, start + state.pageSize);
+  pageItems.forEach((s) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<span class="problem-link">${s.problemId}</span>: ${s.status} (${s.passed}/${s.total})<div class="muted">${new Date(
+      s.createdAt
+    ).toLocaleString()}</div>`;
+    li.querySelector(".problem-link").addEventListener("click", () => showSubmissionDetail(s));
+    list.appendChild(li);
+  });
+  if (!pageItems.length) list.innerHTML = "<li>No submissions yet.</li>";
+  document.getElementById("subs-page").textContent = `Page ${state.submissionPage}/${totalPages}`;
+}
+
+function showSubmissionDetail(submission) {
+  const lines = [
+    `Submission: ${submission.id}`,
+    `Problem: ${submission.problemId}`,
+    `Status: ${submission.status}`,
+    `Score: ${submission.passed}/${submission.total}`,
+    ""
+  ];
+  submission.details.forEach((d) => {
+    lines.push(`Case ${d.testCase}: ${d.status}`);
+    lines.push(`Input: ${JSON.stringify(d.input)}`);
+    lines.push(`Expected: ${JSON.stringify(d.expected)}`);
+    lines.push(`Actual: ${JSON.stringify(d.actual)}`);
+    lines.push("");
+  });
+  document.getElementById("submission-detail").textContent = lines.join("\n");
 }
 
 async function loadLeaderboard() {
@@ -195,5 +263,66 @@ async function loadLeaderboard() {
     list.innerHTML = `<li>${err.message}</li>`;
   }
 }
+
+async function loadProfileStats() {
+  const list = document.getElementById("profile-stats");
+  list.innerHTML = "";
+  try {
+    const stats = await api("/api/me/stats");
+    const entries = [
+      `Username: ${stats.username}`,
+      `Solved: ${stats.solvedCount}/${stats.totalProblems}`,
+      `Total Attempts: ${stats.attempts}`,
+      `Acceptance Rate: ${stats.acceptanceRate}%`
+    ];
+    entries.forEach((t) => {
+      const li = document.createElement("li");
+      li.textContent = t;
+      list.appendChild(li);
+    });
+  } catch (err) {
+    list.innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
+problemSearch.addEventListener("input", (e) => {
+  state.search = String(e.target.value || "").trim().toLowerCase();
+  state.problemPage = 1;
+  renderProblems();
+});
+
+difficultyFilter.addEventListener("change", (e) => {
+  state.difficulty = e.target.value;
+  state.problemPage = 1;
+  renderProblems();
+});
+
+document.getElementById("problems-prev").addEventListener("click", () => {
+  if (state.problemPage > 1) {
+    state.problemPage -= 1;
+    renderProblems();
+  }
+});
+document.getElementById("problems-next").addEventListener("click", () => {
+  const totalPages = Math.max(1, Math.ceil(getFilteredProblems().length / state.pageSize));
+  if (state.problemPage < totalPages) {
+    state.problemPage += 1;
+    renderProblems();
+  }
+});
+
+document.getElementById("subs-prev").addEventListener("click", () => {
+  if (state.submissionPage > 1) {
+    state.submissionPage -= 1;
+    renderSubmissions();
+  }
+});
+document.getElementById("subs-next").addEventListener("click", () => {
+  const totalPages = Math.max(1, Math.ceil(state.submissions.length / state.pageSize));
+  if (state.submissionPage < totalPages) {
+    state.submissionPage += 1;
+    renderSubmissions();
+  }
+});
 
 renderAuth();

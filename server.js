@@ -107,11 +107,14 @@ app.post("/api/auth/login", async (req, res) => {
 });
 
 app.get("/api/problems", auth, (_req, res) => {
+  const me = store.getUsers().find((u) => u.id === _req.user.id);
+  const solvedSet = new Set(Array.isArray(me?.solved) ? me.solved : []);
   const list = problems.map((p) => ({
     id: p.id,
     title: p.title,
     difficulty: p.difficulty,
-    tags: p.tags
+    tags: p.tags,
+    solved: solvedSet.has(p.id)
   }));
   return res.json(list);
 });
@@ -185,6 +188,22 @@ app.get("/api/leaderboard", auth, (_req, res) => {
     .map((u) => ({ username: u.username, solved: Array.isArray(u.solved) ? u.solved.length : 0 }))
     .sort((a, b) => b.solved - a.solved || a.username.localeCompare(b.username));
   return res.json(board);
+});
+
+app.get("/api/me/stats", auth, (req, res) => {
+  const users = store.getUsers();
+  const me = users.find((u) => u.id === req.user.id);
+  if (!me) return res.status(404).json({ error: "User not found" });
+  const solvedCount = Array.isArray(me.solved) ? me.solved.length : 0;
+  const totalProblems = problems.length;
+  const attempts = store.getSubmissions().filter((s) => s.userId === req.user.id).length;
+  return res.json({
+    username: me.username,
+    solvedCount,
+    totalProblems,
+    attempts,
+    acceptanceRate: attempts ? Math.round((solvedCount / attempts) * 100) : 0
+  });
 });
 
 app.get("/api/health", (_req, res) => {

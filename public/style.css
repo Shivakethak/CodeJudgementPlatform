@@ -77,6 +77,36 @@ li {
   color: #93c5fd;
 }
 
+.muted {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+.status-chip {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border: 1px solid #334155;
+  border-radius: 999px;
+  font-size: 11px;
+}
+
+.status-solved {
+  color: #22c55e;
+  border-color: #14532d;
+}
+
+#submission-detail {
+  margin-top: 10px;
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
+  max-height: 220px;
+  overflow: auto;
+}
+
 #problem-examples,
 #problem-constraints,
 #problem-hints {

@@ -31,7 +31,21 @@
       <section id="dashboard" class="grid hidden">
         <article class="card">
           <h2>Problems</h2>
+          <div class="row">
+            <input id="problem-search" placeholder="Search problems..." />
+            <select id="difficulty-filter">
+              <option value="ALL">All</option>
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
           <ul id="problems-list"></ul>
+          <div class="row">
+            <button id="problems-prev" class="ghost">Prev</button>
+            <span id="problems-page"></span>
+            <button id="problems-next" class="ghost">Next</button>
+          </div>
         </article>
 
         <article class="card">
@@ -52,6 +66,17 @@
         <article class="card">
           <h2>My Submissions</h2>
           <ul id="submissions-list"></ul>
+          <div class="row">
+            <button id="subs-prev" class="ghost">Prev</button>
+            <span id="subs-page"></span>
+            <button id="subs-next" class="ghost">Next</button>
+          </div>
+          <pre id="submission-detail">Click a submission to see details.</pre>
+        </article>
+
+        <article class="card">
+          <h2>My Profile</h2>
+          <ul id="profile-stats"></ul>
         </article>
 
         <article class="card">
