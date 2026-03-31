@@ -4,11 +4,13 @@ const state = {
   selectedProblemId: null,
   problems: [],
   submissions: [],
+  contests: [],
   problemPage: 1,
   submissionPage: 1,
   pageSize: 6,
   search: "",
-  difficulty: "ALL"
+  difficulty: "ALL",
+  selectedContestId: null
 };
 
 const authMsg = document.getElementById("auth-msg");
@@ -16,6 +18,7 @@ const userPill = document.getElementById("user-pill");
 const dashboard = document.getElementById("dashboard");
 const problemSearch = document.getElementById("problem-search");
 const difficultyFilter = document.getElementById("difficulty-filter");
+const adminPanel = document.getElementById("admin-panel");
 
 function setAuth(token, user) {
   state.token = token;
@@ -27,14 +30,17 @@ function setAuth(token, user) {
 
 function renderAuth() {
   if (state.user) {
-    userPill.textContent = `${state.user.username} logged in`;
+    userPill.textContent = `${state.user.username} logged in${state.user.isAdmin ? " (Admin)" : ""}`;
+    adminPanel.classList.toggle("hidden", !state.user.isAdmin);
     dashboard.classList.remove("hidden");
     loadProblems();
     loadSubmissions();
     loadLeaderboard();
     loadProfileStats();
+    loadContests();
   } else {
     userPill.textContent = "Guest";
+    adminPanel.classList.add("hidden");
     dashboard.classList.add("hidden");
   }
 }
@@ -139,6 +145,7 @@ async function selectProblem(problemId) {
     renderProblemMetaBlocks(p);
     document.getElementById("code-editor").value = p.starterCode;
     document.getElementById("judge-result").textContent = "";
+    loadDiscussions();
   } catch (err) {
     document.getElementById("judge-result").textContent = err.message;
   }
@@ -186,7 +193,11 @@ async function runOrSubmit(isSubmit) {
     const code = document.getElementById("code-editor").value;
     const result = await api(isSubmit ? "/api/submissions" : "/api/submissions/run", {
       method: "POST",
-      body: JSON.stringify({ problemId: state.selectedProblemId, code })
+      body: JSON.stringify({
+        problemId: state.selectedProblemId,
+        code,
+        contestId: state.selectedContestId || null
+      })
     });
     document.getElementById("judge-result").textContent = formatResult(isSubmit ? "Submit" : "Run", result);
     if (isSubmit) {
@@ -264,6 +275,88 @@ async function loadLeaderboard() {
   }
 }
 
+async function loadDiscussions() {
+  const list = document.getElementById("discussion-list");
+  list.innerHTML = "";
+  if (!state.selectedProblemId) {
+    list.innerHTML = "<li>Select a problem to view discussions.</li>";
+    return;
+  }
+  try {
+    const rows = await api(`/api/problems/${state.selectedProblemId}/discussions`);
+    rows.forEach((row) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<strong>${row.username}:</strong> ${row.text}<div class="muted">${new Date(row.createdAt).toLocaleString()}</div>`;
+      list.appendChild(li);
+    });
+    if (!rows.length) list.innerHTML = "<li>No discussions yet.</li>";
+  } catch (err) {
+    list.innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
+document.getElementById("discussion-post-btn").addEventListener("click", async () => {
+  if (!state.selectedProblemId) {
+    document.getElementById("judge-result").textContent = "Select a problem first.";
+    return;
+  }
+  const input = document.getElementById("discussion-input");
+  const text = String(input.value || "").trim();
+  if (!text) return;
+  try {
+    await api(`/api/problems/${state.selectedProblemId}/discussions`, {
+      method: "POST",
+      body: JSON.stringify({ text })
+    });
+    input.value = "";
+    loadDiscussions();
+  } catch (err) {
+    document.getElementById("judge-result").textContent = err.message;
+  }
+});
+
+async function loadContests() {
+  const list = document.getElementById("contests-list");
+  list.innerHTML = "";
+  try {
+    state.contests = await api("/api/contests");
+    state.contests.forEach((contest) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="problem-link">${contest.title}</span> (${contest.status})<div class="muted">${contest.participantCount} participants</div>`;
+      li.querySelector(".problem-link").addEventListener("click", async () => {
+        state.selectedContestId = contest.id;
+        try {
+          await api(`/api/contests/${contest.id}/join`, { method: "POST" });
+        } catch (_err) {
+          // Ignore duplicate joins.
+        }
+        loadContestLeaderboard(contest.id);
+        document.getElementById("judge-result").textContent = `Joined contest: ${contest.title}`;
+      });
+      list.appendChild(li);
+    });
+    if (!state.contests.length) list.innerHTML = "<li>No contests available.</li>";
+  } catch (err) {
+    list.innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
+async function loadContestLeaderboard(contestId) {
+  const list = document.getElementById("contest-leaderboard");
+  list.innerHTML = "";
+  try {
+    const board = await api(`/api/contests/${contestId}/leaderboard`);
+    board.forEach((row, idx) => {
+      const li = document.createElement("li");
+      li.textContent = `#${idx + 1} ${row.username} - solved ${row.solved} (penalty ${row.penalties})`;
+      list.appendChild(li);
+    });
+    if (!board.length) list.innerHTML = "<li>No scoreboard data yet.</li>";
+  } catch (err) {
+    list.innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
 async function loadProfileStats() {
   const list = document.getElementById("profile-stats");
   list.innerHTML = "";
@@ -322,6 +415,53 @@ document.getElementById("subs-next").addEventListener("click", () => {
   if (state.submissionPage < totalPages) {
     state.submissionPage += 1;
     renderSubmissions();
+  }
+});
+
+document.getElementById("admin-create-problem-btn").addEventListener("click", async () => {
+  const adminMsg = document.getElementById("admin-msg");
+  try {
+    const title = document.getElementById("admin-problem-title").value.trim();
+    const difficulty = document.getElementById("admin-problem-difficulty").value;
+    const tags = document
+      .getElementById("admin-problem-tags")
+      .value.split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const statement = document.getElementById("admin-problem-statement").value.trim();
+    const starterCode = document.getElementById("admin-problem-code").value;
+    const tests = JSON.parse(document.getElementById("admin-problem-tests").value || "[]");
+    await api("/api/admin/problems", {
+      method: "POST",
+      body: JSON.stringify({ title, difficulty, tags, statement, starterCode, tests })
+    });
+    adminMsg.textContent = "Problem created.";
+    loadProblems();
+  } catch (err) {
+    adminMsg.textContent = err.message;
+  }
+});
+
+document.getElementById("admin-create-contest-btn").addEventListener("click", async () => {
+  const adminMsg = document.getElementById("admin-msg");
+  try {
+    const title = document.getElementById("admin-contest-title").value.trim();
+    const description = document.getElementById("admin-contest-description").value.trim();
+    const startTime = document.getElementById("admin-contest-start").value.trim();
+    const endTime = document.getElementById("admin-contest-end").value.trim();
+    const problemIds = document
+      .getElementById("admin-contest-problems")
+      .value.split(",")
+      .map((x) => x.trim())
+      .filter(Boolean);
+    await api("/api/contests", {
+      method: "POST",
+      body: JSON.stringify({ title, description, startTime, endTime, problemIds })
+    });
+    adminMsg.textContent = "Contest created.";
+    loadContests();
+  } catch (err) {
+    adminMsg.textContent = err.message;
   }
 });
 

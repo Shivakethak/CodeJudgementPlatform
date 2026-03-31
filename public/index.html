@@ -61,6 +61,12 @@
             <button id="submit-btn">Submit</button>
           </div>
           <pre id="judge-result"></pre>
+          <h3>Discussions</h3>
+          <div class="row">
+            <input id="discussion-input" placeholder="Share your approach..." />
+            <button id="discussion-post-btn">Post</button>
+          </div>
+          <ul id="discussion-list"></ul>
         </article>
 
         <article class="card">
@@ -82,6 +88,62 @@
         <article class="card">
           <h2>Leaderboard</h2>
           <ul id="leaderboard-list"></ul>
+        </article>
+
+        <article class="card">
+          <h2>Contests</h2>
+          <ul id="contests-list"></ul>
+          <h3>Contest Leaderboard</h3>
+          <ul id="contest-leaderboard"></ul>
+        </article>
+
+        <article id="admin-panel" class="card hidden">
+          <h2>Admin Panel</h2>
+          <p class="muted">Create problems and contests.</p>
+          <div class="row">
+            <input id="admin-problem-title" placeholder="Problem title" />
+            <select id="admin-problem-difficulty">
+              <option value="Easy">Easy</option>
+              <option value="Medium">Medium</option>
+              <option value="Hard">Hard</option>
+            </select>
+          </div>
+          <div class="row">
+            <input id="admin-problem-tags" placeholder="Tags comma separated" />
+          </div>
+          <div class="row">
+            <input id="admin-problem-statement" placeholder="Statement" />
+          </div>
+          <div class="row">
+            <textarea id="admin-problem-code" rows="6" placeholder="Starter code"></textarea>
+          </div>
+          <div class="row">
+            <textarea
+              id="admin-problem-tests"
+              rows="6"
+              placeholder='Tests JSON, e.g. [{"input":{"n":2},"expected":4}]'
+            ></textarea>
+          </div>
+          <button id="admin-create-problem-btn">Create Problem</button>
+          <p id="admin-msg"></p>
+          <hr />
+          <h3>Create Contest</h3>
+          <div class="row">
+            <input id="admin-contest-title" placeholder="Contest title" />
+          </div>
+          <div class="row">
+            <input id="admin-contest-description" placeholder="Contest description" />
+          </div>
+          <div class="row">
+            <input id="admin-contest-start" placeholder="Start ISO, e.g. 2026-04-01T09:00:00.000Z" />
+          </div>
+          <div class="row">
+            <input id="admin-contest-end" placeholder="End ISO, e.g. 2026-04-01T11:00:00.000Z" />
+          </div>
+          <div class="row">
+            <input id="admin-contest-problems" placeholder="Problem IDs comma separated" />
+          </div>
+          <button id="admin-create-contest-btn">Create Contest</button>
         </article>
       </section>
     </main>

@@ -38,6 +38,7 @@ main {
   display: flex;
   gap: 8px;
   margin-bottom: 10px;
+  align-items: center;
 }
 
 input,
@@ -104,6 +105,13 @@ li {
   padding: 10px;
   white-space: pre-wrap;
   max-height: 220px;
+  overflow: auto;
+}
+
+#discussion-list,
+#contests-list,
+#contest-leaderboard {
+  max-height: 180px;
   overflow: auto;
 }
 
