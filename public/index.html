@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AlgoArena</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>AlgoArena</h1>
+      <div id="user-pill"></div>
+    </header>
+
+    <main>
+      <section id="auth-section" class="card">
+        <h2>Login / Register</h2>
+        <div class="row">
+          <input id="username" placeholder="Username (register only)" />
+          <input id="email" placeholder="Email" />
+          <input id="password" type="password" placeholder="Password" />
+        </div>
+        <div class="row">
+          <button id="register-btn">Register</button>
+          <button id="login-btn">Login</button>
+          <button id="logout-btn" class="ghost">Logout</button>
+        </div>
+        <p id="auth-msg"></p>
+      </section>
+
+      <section id="dashboard" class="grid hidden">
+        <article class="card">
+          <h2>Problems</h2>
+          <ul id="problems-list"></ul>
+        </article>
+
+        <article class="card">
+          <h2 id="problem-title">Select a Problem</h2>
+          <p id="problem-meta"></p>
+          <p id="problem-statement"></p>
+          <textarea id="code-editor" rows="18"></textarea>
+          <button id="submit-btn">Run & Submit</button>
+          <pre id="judge-result"></pre>
+        </article>
+
+        <article class="card">
+          <h2>My Submissions</h2>
+          <ul id="submissions-list"></ul>
+        </article>
+
+        <article class="card">
+          <h2>Leaderboard</h2>
+          <ul id="leaderboard-list"></ul>
+        </article>
+      </section>
+    </main>
+
+    <script src="./app.js"></script>
+  </body>
+  </html>
