@@ -115,6 +115,15 @@ li {
   overflow: auto;
 }
 
+#public-profile-view {
+  margin-top: 8px;
+  background: #020617;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 10px;
+  white-space: pre-wrap;
+}
+
 #problem-examples,
 #problem-constraints,
 #problem-hints {

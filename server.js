@@ -36,6 +36,26 @@ function safeEqual(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
+function validateSubmissionCode(code) {
+  if (typeof code !== "string" || !code.trim()) return "Code is required";
+  if (code.length > 12000) return "Code size exceeds limit";
+  const blockedPatterns = [
+    "while (true)",
+    "for (;;)",
+    "require(",
+    "process.",
+    "globalThis",
+    "Function(",
+    "eval(",
+    "import("
+  ];
+  const lowered = code.toLowerCase();
+  if (blockedPatterns.some((p) => lowered.includes(p.toLowerCase()))) {
+    return "Code contains restricted pattern";
+  }
+  return null;
+}
+
 function runUserCode(code, input) {
   const wrapped = `
     ${code}
@@ -49,11 +69,15 @@ function runUserCode(code, input) {
   return script.runInContext(context, { timeout: 1000 });
 }
 
-function evaluateCode(problem, code) {
+function evaluateCode(problem, code, mode) {
+  const tests = Array.isArray(problem.tests) ? problem.tests : [];
+  const selectedTests =
+    mode === "run" ? tests.filter((t) => !t.hidden).slice(0, 3) : tests;
+  const activeTests = selectedTests.length ? selectedTests : tests.slice(0, 1);
   let passed = 0;
   const details = [];
-  for (let i = 0; i < problem.tests.length; i += 1) {
-    const test = problem.tests[i];
+  for (let i = 0; i < activeTests.length; i += 1) {
+    const test = activeTests[i];
     try {
       const actual = runUserCode(code, test.input);
       const ok = safeEqual(actual, test.expected);
@@ -76,9 +100,9 @@ function evaluateCode(problem, code) {
     }
   }
   return {
-    status: passed === problem.tests.length ? "Accepted" : "Failed",
+    status: passed === activeTests.length ? "Accepted" : "Failed",
     passed,
-    total: problem.tests.length,
+    total: activeTests.length,
     details
   };
 }
@@ -143,6 +167,8 @@ app.get("/api/problems/:id", auth, (req, res) => {
     constraints: problem.constraints || [],
     examples: problem.examples || [],
     hints: problem.hints || [],
+    visibleTestCount: (problem.tests || []).filter((t) => !t.hidden).length,
+    totalTestCount: (problem.tests || []).length,
     starterCode: problem.starterCode
   });
 });
@@ -151,8 +177,9 @@ app.post("/api/submissions/run", auth, (req, res) => {
   const { problemId, code } = req.body || {};
   const problem = store.getProblems().find((p) => p.id === problemId);
   if (!problem) return res.status(404).json({ error: "Problem not found" });
-  if (!code || typeof code !== "string") return res.status(400).json({ error: "Code is required" });
-  const result = evaluateCode(problem, code);
+  const codeErr = validateSubmissionCode(code);
+  if (codeErr) return res.status(400).json({ error: codeErr });
+  const result = evaluateCode(problem, code, "run");
   return res.json(result);
 });
 
@@ -160,9 +187,10 @@ app.post("/api/submissions", auth, (req, res) => {
   const { problemId, code, contestId } = req.body || {};
   const problem = store.getProblems().find((p) => p.id === problemId);
   if (!problem) return res.status(404).json({ error: "Problem not found" });
-  if (!code || typeof code !== "string") return res.status(400).json({ error: "Code is required" });
+  const codeErr = validateSubmissionCode(code);
+  if (codeErr) return res.status(400).json({ error: codeErr });
 
-  const result = evaluateCode(problem, code);
+  const result = evaluateCode(problem, code, "submit");
   const submission = {
     id: uuidv4(),
     userId: req.user.id,
@@ -201,6 +229,29 @@ app.get("/api/leaderboard", auth, (_req, res) => {
     .map((u) => ({ username: u.username, solved: Array.isArray(u.solved) ? u.solved.length : 0 }))
     .sort((a, b) => b.solved - a.solved || a.username.localeCompare(b.username));
   return res.json(board);
+});
+
+app.get("/api/users", auth, (_req, res) => {
+  const users = store
+    .getUsers()
+    .map((u) => ({ username: u.username, solved: Array.isArray(u.solved) ? u.solved.length : 0 }))
+    .sort((a, b) => b.solved - a.solved || a.username.localeCompare(b.username));
+  return res.json(users);
+});
+
+app.get("/api/users/:username", auth, (req, res) => {
+  const user = store.getUsers().find((u) => u.username.toLowerCase() === String(req.params.username).toLowerCase());
+  if (!user) return res.status(404).json({ error: "User not found" });
+  const submissions = store.getSubmissions().filter((s) => s.userId === user.id);
+  const accepted = submissions.filter((s) => s.status === "Accepted").length;
+  return res.json({
+    username: user.username,
+    solvedCount: Array.isArray(user.solved) ? user.solved.length : 0,
+    totalAttempts: submissions.length,
+    accepted,
+    acceptanceRate: submissions.length ? Math.round((accepted / submissions.length) * 100) : 0,
+    recentSubmissions: submissions.slice(-10).reverse()
+  });
 });
 
 app.get("/api/me/stats", auth, (req, res) => {
@@ -284,7 +335,9 @@ app.get("/api/contests", auth, (_req, res) => {
     return {
       ...contest,
       status,
-      participantCount: Array.isArray(contest.participants) ? contest.participants.length : 0
+      participantCount: Array.isArray(contest.participants) ? contest.participants.length : 0,
+      msToStart: Math.max(0, start - now),
+      msToEnd: Math.max(0, end - now)
     };
   });
   return res.json(contests);
@@ -337,7 +390,10 @@ app.get("/api/problems/:id/discussions", auth, (req, res) => {
   const items = store
     .getDiscussions()
     .filter((d) => d.problemId === req.params.id)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    .sort((a, b) => {
+      if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+      return a.createdAt < b.createdAt ? 1 : -1;
+    });
   return res.json(items);
 });
 
@@ -352,10 +408,23 @@ app.post("/api/problems/:id/discussions", auth, (req, res) => {
     userId: req.user.id,
     username: req.user.username,
     text: String(text).trim(),
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    pinned: false
   };
   store.addDiscussion(item);
   return res.status(201).json(item);
+});
+
+app.patch("/api/discussions/:id/pin", auth, adminOnly, (req, res) => {
+  const updated = store.updateDiscussion(req.params.id, (d) => ({ ...d, pinned: !d.pinned }));
+  if (!updated) return res.status(404).json({ error: "Discussion not found" });
+  return res.json(updated);
+});
+
+app.delete("/api/discussions/:id", auth, adminOnly, (req, res) => {
+  const ok = store.deleteDiscussion(req.params.id);
+  if (!ok) return res.status(404).json({ error: "Discussion not found" });
+  return res.json({ message: "Deleted" });
 });
 
 app.get("/api/health", (_req, res) => {

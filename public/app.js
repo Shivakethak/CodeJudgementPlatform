@@ -10,7 +10,8 @@ const state = {
   pageSize: 6,
   search: "",
   difficulty: "ALL",
-  selectedContestId: null
+  selectedContestId: null,
+  contestTicker: null
 };
 
 const authMsg = document.getElementById("auth-msg");
@@ -152,7 +153,10 @@ async function selectProblem(problemId) {
 }
 
 function formatResult(label, result) {
-  const lines = [`Mode: ${label}`, `Status: ${result.status}`, `Passed: ${result.passed}/${result.total}`, ""];
+  const lines = [`Mode: ${label}`, `Status: ${result.status}`, `Passed: ${result.passed}/${result.total}`];
+  if (label === "Run") lines.push("Note: Run mode uses only visible sample tests.");
+  if (label === "Submit") lines.push("Note: Submit mode uses full test suite including hidden tests.");
+  lines.push("");
   result.details.forEach((d) => {
     lines.push(`Case ${d.testCase}: ${d.status}`);
     lines.push(`Input: ${JSON.stringify(d.input)}`);
@@ -286,9 +290,29 @@ async function loadDiscussions() {
     const rows = await api(`/api/problems/${state.selectedProblemId}/discussions`);
     rows.forEach((row) => {
       const li = document.createElement("li");
-      li.innerHTML = `<strong>${row.username}:</strong> ${row.text}<div class="muted">${new Date(row.createdAt).toLocaleString()}</div>`;
+      const pin = row.pinned ? " [PINNED]" : "";
+      const controls = state.user?.isAdmin
+        ? `<button data-pin="${row.id}" class="ghost">Pin/Unpin</button> <button data-del="${row.id}" class="ghost">Delete</button>`
+        : "";
+      li.innerHTML = `<strong>${row.username}${pin}:</strong> ${row.text}<div class="muted">${new Date(
+        row.createdAt
+      ).toLocaleString()}</div><div>${controls}</div>`;
       list.appendChild(li);
     });
+    if (state.user?.isAdmin) {
+      list.querySelectorAll("[data-pin]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          await api(`/api/discussions/${btn.getAttribute("data-pin")}/pin`, { method: "PATCH" });
+          loadDiscussions();
+        });
+      });
+      list.querySelectorAll("[data-del]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          await api(`/api/discussions/${btn.getAttribute("data-del")}`, { method: "DELETE" });
+          loadDiscussions();
+        });
+      });
+    }
     if (!rows.length) list.innerHTML = "<li>No discussions yet.</li>";
   } catch (err) {
     list.innerHTML = `<li>${err.message}</li>`;
@@ -336,9 +360,34 @@ async function loadContests() {
       list.appendChild(li);
     });
     if (!state.contests.length) list.innerHTML = "<li>No contests available.</li>";
+    startContestTicker();
   } catch (err) {
     list.innerHTML = `<li>${err.message}</li>`;
   }
+}
+
+function formatMs(ms) {
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+}
+
+function startContestTicker() {
+  if (state.contestTicker) clearInterval(state.contestTicker);
+  state.contestTicker = setInterval(async () => {
+    try {
+      state.contests = await api("/api/contests");
+      const active = state.contests.find((c) => c.status === "live");
+      const text = active
+        ? `Live: ${active.title} | Ends in ${formatMs(active.msToEnd)}`
+        : "No live contest right now.";
+      document.getElementById("contest-active").textContent = text;
+    } catch (_err) {
+      document.getElementById("contest-active").textContent = "Contest status unavailable.";
+    }
+  }, 1000);
 }
 
 async function loadContestLeaderboard(contestId) {
@@ -377,6 +426,30 @@ async function loadProfileStats() {
     list.innerHTML = `<li>${err.message}</li>`;
   }
 }
+
+document.getElementById("profile-load-btn").addEventListener("click", async () => {
+  const username = document.getElementById("profile-search-username").value.trim();
+  if (!username) return;
+  const view = document.getElementById("public-profile-view");
+  try {
+    const profile = await api(`/api/users/${encodeURIComponent(username)}`);
+    const lines = [
+      `Username: ${profile.username}`,
+      `Solved: ${profile.solvedCount}`,
+      `Attempts: ${profile.totalAttempts}`,
+      `Accepted: ${profile.accepted}`,
+      `Acceptance Rate: ${profile.acceptanceRate}%`,
+      "",
+      "Recent Submissions:"
+    ];
+    profile.recentSubmissions.forEach((s) => {
+      lines.push(`- ${s.problemId}: ${s.status} (${s.passed}/${s.total})`);
+    });
+    view.textContent = lines.join("\n");
+  } catch (err) {
+    view.textContent = err.message;
+  }
+});
 
 problemSearch.addEventListener("input", (e) => {
   state.search = String(e.target.value || "").trim().toLowerCase();

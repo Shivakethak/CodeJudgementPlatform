@@ -127,6 +127,24 @@ function addDiscussion(discussion) {
   saveDb(db);
 }
 
+function updateDiscussion(discussionId, updater) {
+  const db = loadDb();
+  const idx = db.discussions.findIndex((d) => d.id === discussionId);
+  if (idx === -1) return null;
+  db.discussions[idx] = updater(db.discussions[idx]);
+  saveDb(db);
+  return db.discussions[idx];
+}
+
+function deleteDiscussion(discussionId) {
+  const db = loadDb();
+  const before = db.discussions.length;
+  db.discussions = db.discussions.filter((d) => d.id !== discussionId);
+  if (db.discussions.length === before) return false;
+  saveDb(db);
+  return true;
+}
+
 module.exports = {
   getUsers,
   getSubmissions,
@@ -140,5 +158,7 @@ module.exports = {
   updateProblem,
   addContest,
   updateContest,
-  addDiscussion
+  addDiscussion,
+  updateDiscussion,
+  deleteDiscussion
 };

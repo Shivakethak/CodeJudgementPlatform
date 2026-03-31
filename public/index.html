@@ -92,9 +92,19 @@
 
         <article class="card">
           <h2>Contests</h2>
+          <p id="contest-active"></p>
           <ul id="contests-list"></ul>
           <h3>Contest Leaderboard</h3>
           <ul id="contest-leaderboard"></ul>
+        </article>
+
+        <article class="card">
+          <h2>Public Profiles</h2>
+          <div class="row">
+            <input id="profile-search-username" placeholder="Enter username" />
+            <button id="profile-load-btn">Load</button>
+          </div>
+          <pre id="public-profile-view">Search a username to view public profile.</pre>
         </article>
 
         <article id="admin-panel" class="card hidden">
