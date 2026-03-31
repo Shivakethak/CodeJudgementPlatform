@@ -83,6 +83,7 @@
         <article class="card">
           <h2>My Profile</h2>
           <ul id="profile-stats"></ul>
+          <button id="export-submissions-btn" class="ghost">Export My Submissions (CSV)</button>
         </article>
 
         <article class="card">
@@ -96,6 +97,39 @@
           <ul id="contests-list"></ul>
           <h3>Contest Leaderboard</h3>
           <ul id="contest-leaderboard"></ul>
+        </article>
+
+        <article class="card">
+          <h2>Daily Challenge</h2>
+          <p id="daily-challenge-view">Loading daily challenge...</p>
+        </article>
+
+        <article class="card">
+          <h2>Recommendations</h2>
+          <ul id="recommendations-list"></ul>
+        </article>
+
+        <article class="card">
+          <h2>My Playlists</h2>
+          <div class="row">
+            <input id="playlist-name" placeholder="New playlist name" />
+            <button id="create-playlist-btn">Create</button>
+          </div>
+          <div class="row">
+            <select id="playlist-select"></select>
+            <button id="add-selected-problem-btn" class="ghost">Add Selected Problem</button>
+          </div>
+          <ul id="playlists-list"></ul>
+        </article>
+
+        <article class="card">
+          <h2>My Notes</h2>
+          <p class="muted">Notes are saved per selected problem.</p>
+          <textarea id="problem-note-input" rows="8" placeholder="Write your approach, edge cases, and tricks..."></textarea>
+          <div class="row">
+            <button id="save-note-btn">Save Note</button>
+          </div>
+          <p id="note-msg"></p>
         </article>
 
         <article class="card">

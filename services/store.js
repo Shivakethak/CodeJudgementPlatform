@@ -21,7 +21,9 @@ function getDefaultDb() {
       tests: p.tests
     })),
     contests: [],
-    discussions: []
+    discussions: [],
+    notes: [],
+    playlists: []
   };
 }
 
@@ -41,7 +43,9 @@ function loadDb() {
     submissions: Array.isArray(parsed.submissions) ? parsed.submissions : [],
     problems: Array.isArray(parsed.problems) && parsed.problems.length ? parsed.problems : defaults.problems,
     contests: Array.isArray(parsed.contests) ? parsed.contests : [],
-    discussions: Array.isArray(parsed.discussions) ? parsed.discussions : []
+    discussions: Array.isArray(parsed.discussions) ? parsed.discussions : [],
+    notes: Array.isArray(parsed.notes) ? parsed.notes : [],
+    playlists: Array.isArray(parsed.playlists) ? parsed.playlists : []
   };
 }
 
@@ -67,6 +71,14 @@ function getContests() {
 
 function getDiscussions() {
   return loadDb().discussions;
+}
+
+function getNotes() {
+  return loadDb().notes;
+}
+
+function getPlaylists() {
+  return loadDb().playlists;
 }
 
 function addUser(user) {
@@ -145,12 +157,38 @@ function deleteDiscussion(discussionId) {
   return true;
 }
 
+function upsertNote(note) {
+  const db = loadDb();
+  const idx = db.notes.findIndex((n) => n.userId === note.userId && n.problemId === note.problemId);
+  if (idx === -1) db.notes.push(note);
+  else db.notes[idx] = note;
+  saveDb(db);
+  return note;
+}
+
+function addPlaylist(playlist) {
+  const db = loadDb();
+  db.playlists.push(playlist);
+  saveDb(db);
+}
+
+function updatePlaylist(playlistId, updater) {
+  const db = loadDb();
+  const idx = db.playlists.findIndex((p) => p.id === playlistId);
+  if (idx === -1) return null;
+  db.playlists[idx] = updater(db.playlists[idx]);
+  saveDb(db);
+  return db.playlists[idx];
+}
+
 module.exports = {
   getUsers,
   getSubmissions,
   getProblems,
   getContests,
   getDiscussions,
+  getNotes,
+  getPlaylists,
   addUser,
   updateUser,
   addSubmission,
@@ -160,5 +198,8 @@ module.exports = {
   updateContest,
   addDiscussion,
   updateDiscussion,
-  deleteDiscussion
+  deleteDiscussion,
+  upsertNote,
+  addPlaylist,
+  updatePlaylist
 };

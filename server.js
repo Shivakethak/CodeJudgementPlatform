@@ -254,6 +254,48 @@ app.get("/api/users/:username", auth, (req, res) => {
   });
 });
 
+app.get("/api/daily-challenge", auth, (_req, res) => {
+  const problems = store.getProblems();
+  if (!problems.length) return res.status(404).json({ error: "No problems available" });
+  const today = new Date();
+  const key = `${today.getUTCFullYear()}-${today.getUTCMonth() + 1}-${today.getUTCDate()}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) % 100000;
+  const idx = hash % problems.length;
+  const p = problems[idx];
+  return res.json({
+    date: key,
+    problemId: p.id,
+    title: p.title,
+    difficulty: p.difficulty,
+    tags: p.tags
+  });
+});
+
+app.get("/api/recommendations", auth, (req, res) => {
+  const me = store.getUsers().find((u) => u.id === req.user.id);
+  if (!me) return res.status(404).json({ error: "User not found" });
+  const solved = new Set(Array.isArray(me.solved) ? me.solved : []);
+  const candidates = store.getProblems().filter((p) => !solved.has(p.id));
+  const scored = candidates.map((p) => {
+    let score = 0;
+    if (p.difficulty === "Easy") score += 3;
+    if (p.difficulty === "Medium") score += 2;
+    if (p.difficulty === "Hard") score += 1;
+    score += Math.min((p.tags || []).length, 3);
+    return { ...p, score };
+  });
+  scored.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+  return res.json(
+    scored.slice(0, 8).map((p) => ({
+      id: p.id,
+      title: p.title,
+      difficulty: p.difficulty,
+      tags: p.tags
+    }))
+  );
+});
+
 app.get("/api/me/stats", auth, (req, res) => {
   const users = store.getUsers();
   const me = users.find((u) => u.id === req.user.id);
@@ -268,6 +310,72 @@ app.get("/api/me/stats", auth, (req, res) => {
     attempts,
     acceptanceRate: attempts ? Math.round((solvedCount / attempts) * 100) : 0
   });
+});
+
+app.get("/api/submissions/me/export", auth, (req, res) => {
+  const rows = store
+    .getSubmissions()
+    .filter((s) => s.userId === req.user.id)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  const header = "submissionId,problemId,status,passed,total,createdAt";
+  const body = rows.map((r) => `${r.id},${r.problemId},${r.status},${r.passed},${r.total},${r.createdAt}`).join("\n");
+  const csv = `${header}\n${body}`;
+  res.setHeader("Content-Type", "text/csv");
+  return res.send(csv);
+});
+
+app.get("/api/problems/:id/note", auth, (req, res) => {
+  const note = store.getNotes().find((n) => n.userId === req.user.id && n.problemId === req.params.id);
+  return res.json(note || { problemId: req.params.id, text: "" });
+});
+
+app.put("/api/problems/:id/note", auth, (req, res) => {
+  const text = String(req.body?.text || "");
+  const note = {
+    id: `${req.user.id}:${req.params.id}`,
+    userId: req.user.id,
+    problemId: req.params.id,
+    text,
+    updatedAt: new Date().toISOString()
+  };
+  store.upsertNote(note);
+  return res.json(note);
+});
+
+app.get("/api/playlists", auth, (req, res) => {
+  const mine = store
+    .getPlaylists()
+    .filter((p) => p.userId === req.user.id)
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+  return res.json(mine);
+});
+
+app.post("/api/playlists", auth, (req, res) => {
+  const name = String(req.body?.name || "").trim();
+  if (!name) return res.status(400).json({ error: "Playlist name is required" });
+  const playlist = {
+    id: uuidv4(),
+    userId: req.user.id,
+    name,
+    problemIds: [],
+    createdAt: new Date().toISOString()
+  };
+  store.addPlaylist(playlist);
+  return res.status(201).json(playlist);
+});
+
+app.post("/api/playlists/:id/problems", auth, (req, res) => {
+  const problemId = String(req.body?.problemId || "");
+  if (!problemId) return res.status(400).json({ error: "problemId required" });
+  if (!store.getProblems().find((p) => p.id === problemId)) return res.status(404).json({ error: "Problem not found" });
+  const updated = store.updatePlaylist(req.params.id, (p) => {
+    if (p.userId !== req.user.id) return p;
+    const problemIds = Array.isArray(p.problemIds) ? p.problemIds : [];
+    if (!problemIds.includes(problemId)) problemIds.push(problemId);
+    return { ...p, problemIds };
+  });
+  if (!updated || updated.userId !== req.user.id) return res.status(404).json({ error: "Playlist not found" });
+  return res.json(updated);
 });
 
 app.post("/api/admin/problems", auth, adminOnly, (req, res) => {

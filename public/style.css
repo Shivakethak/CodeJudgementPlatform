@@ -124,6 +124,10 @@ li {
   white-space: pre-wrap;
 }
 
+#daily-challenge-view {
+  white-space: pre-wrap;
+}
+
 #problem-examples,
 #problem-constraints,
 #problem-hints {

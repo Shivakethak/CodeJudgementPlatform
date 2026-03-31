@@ -11,7 +11,8 @@ const state = {
   search: "",
   difficulty: "ALL",
   selectedContestId: null,
-  contestTicker: null
+  contestTicker: null,
+  playlists: []
 };
 
 const authMsg = document.getElementById("auth-msg");
@@ -39,6 +40,9 @@ function renderAuth() {
     loadLeaderboard();
     loadProfileStats();
     loadContests();
+    loadDailyChallenge();
+    loadRecommendations();
+    loadPlaylists();
   } else {
     userPill.textContent = "Guest";
     adminPanel.classList.add("hidden");
@@ -147,6 +151,7 @@ async function selectProblem(problemId) {
     document.getElementById("code-editor").value = p.starterCode;
     document.getElementById("judge-result").textContent = "";
     loadDiscussions();
+    loadNote(problemId);
   } catch (err) {
     document.getElementById("judge-result").textContent = err.message;
   }
@@ -427,6 +432,77 @@ async function loadProfileStats() {
   }
 }
 
+async function loadDailyChallenge() {
+  const view = document.getElementById("daily-challenge-view");
+  try {
+    const d = await api("/api/daily-challenge");
+    view.textContent = `Date: ${d.date}\nProblem: ${d.title}\nDifficulty: ${d.difficulty}\nTags: ${d.tags.join(", ")}\nID: ${d.problemId}`;
+  } catch (err) {
+    view.textContent = err.message;
+  }
+}
+
+async function loadRecommendations() {
+  const list = document.getElementById("recommendations-list");
+  list.innerHTML = "";
+  try {
+    const rows = await api("/api/recommendations");
+    rows.forEach((r) => {
+      const li = document.createElement("li");
+      li.innerHTML = `<span class="problem-link">${r.title}</span> (${r.difficulty})<div class="muted">${r.tags.join(", ")}</div>`;
+      li.querySelector(".problem-link").addEventListener("click", () => selectProblem(r.id));
+      list.appendChild(li);
+    });
+    if (!rows.length) list.innerHTML = "<li>No recommendations available.</li>";
+  } catch (err) {
+    list.innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
+async function loadPlaylists() {
+  const list = document.getElementById("playlists-list");
+  const select = document.getElementById("playlist-select");
+  list.innerHTML = "";
+  select.innerHTML = "";
+  try {
+    state.playlists = await api("/api/playlists");
+    state.playlists.forEach((p) => {
+      const li = document.createElement("li");
+      li.textContent = `${p.name} (${(p.problemIds || []).length} problems): ${(p.problemIds || []).join(", ")}`;
+      list.appendChild(li);
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = p.name;
+      select.appendChild(opt);
+    });
+    if (!state.playlists.length) {
+      list.innerHTML = "<li>No playlists yet.</li>";
+      const opt = document.createElement("option");
+      opt.value = "";
+      opt.textContent = "No playlists";
+      select.appendChild(opt);
+    }
+  } catch (err) {
+    list.innerHTML = `<li>${err.message}</li>`;
+  }
+}
+
+async function loadNote(problemId) {
+  const input = document.getElementById("problem-note-input");
+  const msg = document.getElementById("note-msg");
+  msg.textContent = "";
+  if (!problemId) {
+    input.value = "";
+    return;
+  }
+  try {
+    const note = await api(`/api/problems/${problemId}/note`);
+    input.value = note.text || "";
+  } catch (err) {
+    msg.textContent = err.message;
+  }
+}
+
 document.getElementById("profile-load-btn").addEventListener("click", async () => {
   const username = document.getElementById("profile-search-username").value.trim();
   if (!username) return;
@@ -448,6 +524,66 @@ document.getElementById("profile-load-btn").addEventListener("click", async () =
     view.textContent = lines.join("\n");
   } catch (err) {
     view.textContent = err.message;
+  }
+});
+
+document.getElementById("create-playlist-btn").addEventListener("click", async () => {
+  const name = document.getElementById("playlist-name").value.trim();
+  if (!name) return;
+  await api("/api/playlists", { method: "POST", body: JSON.stringify({ name }) });
+  document.getElementById("playlist-name").value = "";
+  loadPlaylists();
+});
+
+document.getElementById("add-selected-problem-btn").addEventListener("click", async () => {
+  const playlistId = document.getElementById("playlist-select").value;
+  if (!playlistId || !state.selectedProblemId) {
+    document.getElementById("judge-result").textContent = "Select both a playlist and a problem.";
+    return;
+  }
+  await api(`/api/playlists/${playlistId}/problems`, {
+    method: "POST",
+    body: JSON.stringify({ problemId: state.selectedProblemId })
+  });
+  loadPlaylists();
+});
+
+document.getElementById("save-note-btn").addEventListener("click", async () => {
+  const msg = document.getElementById("note-msg");
+  if (!state.selectedProblemId) {
+    msg.textContent = "Select a problem first.";
+    return;
+  }
+  const text = document.getElementById("problem-note-input").value;
+  try {
+    await api(`/api/problems/${state.selectedProblemId}/note`, {
+      method: "PUT",
+      body: JSON.stringify({ text })
+    });
+    msg.textContent = "Note saved.";
+  } catch (err) {
+    msg.textContent = err.message;
+  }
+});
+
+document.getElementById("export-submissions-btn").addEventListener("click", async () => {
+  try {
+    const res = await fetch("/api/submissions/me/export", {
+      headers: { Authorization: state.token ? `Bearer ${state.token}` : "" }
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(text || "Export failed");
+    const blob = new Blob([text], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "my_submissions.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    document.getElementById("judge-result").textContent = err.message;
   }
 });
 
