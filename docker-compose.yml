@@ -1,0 +1,17 @@
+version: "3.9"
+
+services:
+  algoarena:
+    build: .
+    container_name: algoarena
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+      - JWT_SECRET=change-this-secret
+      - REFRESH_TOKEN_SECRET=change-this-refresh-secret
+      - ACCESS_TOKEN_EXPIRES_IN=1d
+      - REFRESH_TOKEN_EXPIRES_IN_DAYS=7
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

@@ -16,9 +16,9 @@
       <section id="auth-section" class="card">
         <h2>Login / Register</h2>
         <div class="row">
-          <input id="username" placeholder="Username (register only)" />
-          <input id="email" placeholder="Email" />
-          <input id="password" type="password" placeholder="Password" />
+          <input id="username" placeholder="Username (register only)" aria-label="Username" />
+          <input id="email" placeholder="Email" aria-label="Email" />
+          <input id="password" type="password" placeholder="Password" aria-label="Password" />
         </div>
         <div class="row">
           <button id="register-btn">Register</button>
@@ -32,7 +32,7 @@
         <article class="card">
           <h2>Problems</h2>
           <div class="row">
-            <input id="problem-search" placeholder="Search problems..." />
+            <input id="problem-search" placeholder="Search problems..." aria-label="Search problems" />
             <select id="difficulty-filter">
               <option value="ALL">All</option>
               <option value="Easy">Easy</option>
@@ -55,7 +55,7 @@
           <div id="problem-examples"></div>
           <div id="problem-constraints"></div>
           <div id="problem-hints"></div>
-          <textarea id="code-editor" rows="18"></textarea>
+          <textarea id="code-editor" rows="18" aria-label="Code editor"></textarea>
           <div class="row">
             <button id="run-btn" class="ghost">Run Code</button>
             <button id="submit-btn">Submit</button>
@@ -63,7 +63,7 @@
           <pre id="judge-result"></pre>
           <h3>Discussions</h3>
           <div class="row">
-            <input id="discussion-input" placeholder="Share your approach..." />
+            <input id="discussion-input" placeholder="Share your approach..." aria-label="Discussion input" />
             <button id="discussion-post-btn">Post</button>
           </div>
           <ul id="discussion-list"></ul>
@@ -112,7 +112,7 @@
         <article class="card">
           <h2>My Playlists</h2>
           <div class="row">
-            <input id="playlist-name" placeholder="New playlist name" />
+            <input id="playlist-name" placeholder="New playlist name" aria-label="Playlist name" />
             <button id="create-playlist-btn">Create</button>
           </div>
           <div class="row">
@@ -125,7 +125,12 @@
         <article class="card">
           <h2>My Notes</h2>
           <p class="muted">Notes are saved per selected problem.</p>
-          <textarea id="problem-note-input" rows="8" placeholder="Write your approach, edge cases, and tricks..."></textarea>
+          <textarea
+            id="problem-note-input"
+            rows="8"
+            placeholder="Write your approach, edge cases, and tricks..."
+            aria-label="Problem notes"
+          ></textarea>
           <div class="row">
             <button id="save-note-btn">Save Note</button>
           </div>
@@ -135,7 +140,7 @@
         <article class="card">
           <h2>Public Profiles</h2>
           <div class="row">
-            <input id="profile-search-username" placeholder="Enter username" />
+            <input id="profile-search-username" placeholder="Enter username" aria-label="Profile username search" />
             <button id="profile-load-btn">Load</button>
           </div>
           <pre id="public-profile-view">Search a username to view public profile.</pre>

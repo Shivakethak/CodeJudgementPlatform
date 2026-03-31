@@ -23,6 +23,11 @@ const problemSearch = document.getElementById("problem-search");
 const difficultyFilter = document.getElementById("difficulty-filter");
 const adminPanel = document.getElementById("admin-panel");
 
+function setText(id, text) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = text;
+}
+
 function setAuth(token, user) {
   state.token = token;
   state.user = user;
@@ -127,6 +132,10 @@ document.getElementById("register-btn").addEventListener("click", async () => {
   const username = document.getElementById("username").value.trim();
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
+  if (!username || !email || !password) {
+    setText("auth-msg", "Username, email and password are required for registration.");
+    return;
+  }
   try {
     await api("/api/auth/register", {
       method: "POST",
@@ -141,6 +150,10 @@ document.getElementById("register-btn").addEventListener("click", async () => {
 document.getElementById("login-btn").addEventListener("click", async () => {
   const email = document.getElementById("email").value.trim();
   const password = document.getElementById("password").value;
+  if (!email || !password) {
+    setText("auth-msg", "Email and password are required for login.");
+    return;
+  }
   try {
     const data = await api("/api/auth/login", {
       method: "POST",
@@ -609,7 +622,10 @@ document.getElementById("profile-load-btn").addEventListener("click", async () =
 
 document.getElementById("create-playlist-btn").addEventListener("click", async () => {
   const name = document.getElementById("playlist-name").value.trim();
-  if (!name) return;
+  if (!name) {
+    setText("judge-result", "Playlist name cannot be empty.");
+    return;
+  }
   await api("/api/playlists", { method: "POST", body: JSON.stringify({ name }) });
   document.getElementById("playlist-name").value = "";
   loadPlaylists();
@@ -724,6 +740,10 @@ document.getElementById("admin-create-problem-btn").addEventListener("click", as
     const statement = document.getElementById("admin-problem-statement").value.trim();
     const starterCode = document.getElementById("admin-problem-code").value;
     const tests = JSON.parse(document.getElementById("admin-problem-tests").value || "[]");
+    if (!title || !statement || !starterCode || !tests.length) {
+      adminMsg.textContent = "Title, statement, starter code and at least one test are required.";
+      return;
+    }
     await api("/api/admin/problems", {
       method: "POST",
       body: JSON.stringify({ title, difficulty, tags, statement, starterCode, tests })
@@ -747,6 +767,10 @@ document.getElementById("admin-create-contest-btn").addEventListener("click", as
       .value.split(",")
       .map((x) => x.trim())
       .filter(Boolean);
+    if (!title || !startTime || !endTime || !problemIds.length) {
+      adminMsg.textContent = "Title, start, end, and at least one problem ID are required.";
+      return;
+    }
     await api("/api/contests", {
       method: "POST",
       body: JSON.stringify({ title, description, startTime, endTime, problemIds })

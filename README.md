@@ -42,6 +42,16 @@ Optional: copy `.env.example` to `.env` and update secrets.
 
    [http://localhost:3000](http://localhost:3000)
 
+## Run with Docker
+
+```bash
+docker compose up --build -d
+```
+
+Then open [http://localhost:3000](http://localhost:3000).
+
+Detailed instructions: see `DEPLOYMENT.md`.
+
 ## Important Notes
 
 - This is an MVP and currently supports JavaScript submissions only.
