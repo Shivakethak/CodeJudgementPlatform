@@ -49,6 +49,22 @@ function parsePagination(req) {
   return { page, limit };
 }
 
+function badRequest(res, message, details) {
+  return res.status(400).json({ error: message, details: details || null });
+}
+
+function requireStringField(obj, field, label = field) {
+  const value = String(obj?.[field] || "").trim();
+  if (!value) return { ok: false, error: `${label} is required` };
+  return { ok: true, value };
+}
+
+function parseIsoTime(value, label) {
+  const ms = new Date(value).getTime();
+  if (!Number.isFinite(ms)) return { ok: false, error: `${label} must be a valid ISO datetime` };
+  return { ok: true, ms };
+}
+
 function paginateArray(items, page, limit) {
   const total = items.length;
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -196,10 +212,19 @@ function evaluateCode(problem, code, mode) {
 }
 
 app.post("/api/auth/register", rateLimit({ keyPrefix: "register", windowMs: 60_000, max: 20 }), async (req, res) => {
-  const { username, email, password } = req.body || {};
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: "username, email, password required" });
+  const usernameResult = requireStringField(req.body, "username");
+  const emailResult = requireStringField(req.body, "email");
+  const passwordResult = requireStringField(req.body, "password");
+  if (!usernameResult.ok || !emailResult.ok || !passwordResult.ok) {
+    return badRequest(res, "Invalid registration payload", {
+      username: usernameResult.ok ? null : usernameResult.error,
+      email: emailResult.ok ? null : emailResult.error,
+      password: passwordResult.ok ? null : passwordResult.error
+    });
   }
+  const username = usernameResult.value;
+  const email = emailResult.value;
+  const password = passwordResult.value;
   const users = store.getUsers();
   if (users.find((u) => u.email === email)) {
     return res.status(409).json({ error: "Email already exists" });
@@ -218,7 +243,16 @@ app.post("/api/auth/register", rateLimit({ keyPrefix: "register", windowMs: 60_0
 });
 
 app.post("/api/auth/login", rateLimit({ keyPrefix: "login", windowMs: 60_000, max: 30 }), async (req, res) => {
-  const { email, password } = req.body || {};
+  const emailResult = requireStringField(req.body, "email");
+  const passwordResult = requireStringField(req.body, "password");
+  if (!emailResult.ok || !passwordResult.ok) {
+    return badRequest(res, "Invalid login payload", {
+      email: emailResult.ok ? null : emailResult.error,
+      password: passwordResult.ok ? null : passwordResult.error
+    });
+  }
+  const email = emailResult.value;
+  const password = passwordResult.value;
   const users = store.getUsers();
   const user = users.find((u) => u.email === email);
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
@@ -557,9 +591,32 @@ app.put("/api/admin/problems/:id", auth, adminOnly, (req, res) => {
 });
 
 app.post("/api/contests", auth, adminOnly, (req, res) => {
-  const { title, description, startTime, endTime, problemIds } = req.body || {};
-  if (!title || !startTime || !endTime || !Array.isArray(problemIds) || !problemIds.length) {
-    return res.status(400).json({ error: "title, startTime, endTime, problemIds required" });
+  const titleResult = requireStringField(req.body, "title");
+  const startResult = requireStringField(req.body, "startTime");
+  const endResult = requireStringField(req.body, "endTime");
+  const problemIds = Array.isArray(req.body?.problemIds) ? req.body.problemIds : [];
+  if (!titleResult.ok || !startResult.ok || !endResult.ok || !problemIds.length) {
+    return badRequest(res, "Invalid contest payload", {
+      title: titleResult.ok ? null : titleResult.error,
+      startTime: startResult.ok ? null : startResult.error,
+      endTime: endResult.ok ? null : endResult.error,
+      problemIds: problemIds.length ? null : "problemIds must contain at least one id"
+    });
+  }
+  const title = titleResult.value;
+  const description = String(req.body?.description || "");
+  const startTime = startResult.value;
+  const endTime = endResult.value;
+  const startIso = parseIsoTime(startTime, "startTime");
+  const endIso = parseIsoTime(endTime, "endTime");
+  if (!startIso.ok || !endIso.ok) {
+    return badRequest(res, "Invalid contest datetime", {
+      startTime: startIso.ok ? null : startIso.error,
+      endTime: endIso.ok ? null : endIso.error
+    });
+  }
+  if (startIso.ms >= endIso.ms) {
+    return badRequest(res, "Invalid contest window", { range: "startTime must be earlier than endTime" });
   }
   const availableProblemIds = new Set(store.getProblems().map((p) => p.id));
   for (const pid of problemIds) {
@@ -715,9 +772,11 @@ app.get("/api/admin/analytics", auth, adminOnly, (_req, res) => {
 
 app.get("/api/admin/backup", auth, adminOnly, (_req, res) => {
   const snapshot = store.loadRawDb();
+  const checksum = crypto.createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
   return res.json({
     generatedAt: new Date().toISOString(),
     schemaVersion: 1,
+    checksum,
     data: snapshot
   });
 });
@@ -726,6 +785,12 @@ app.post("/api/admin/restore", auth, adminOnly, (req, res) => {
   const payload = req.body || {};
   if (!payload.data || typeof payload.data !== "object") {
     return res.status(400).json({ error: "Restore payload must include data object" });
+  }
+  const checksum = String(payload.checksum || "");
+  if (!checksum) return res.status(400).json({ error: "Restore payload must include checksum" });
+  const calculated = crypto.createHash("sha256").update(JSON.stringify(payload.data)).digest("hex");
+  if (calculated !== checksum) {
+    return res.status(400).json({ error: "Checksum mismatch. Backup payload is invalid or tampered." });
   }
   store.saveRawDb(payload.data);
   return res.json({ message: "Backup restored" });
