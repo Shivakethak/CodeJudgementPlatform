@@ -3,6 +3,7 @@ const state = {
   refreshToken: localStorage.getItem("refreshToken") || "",
   user: JSON.parse(localStorage.getItem("user") || "null"),
   selectedProblemId: null,
+  selectedLanguage: localStorage.getItem("selectedLanguage") || "javascript",
   problems: [],
   submissions: [],
   contests: [],
@@ -19,8 +20,37 @@ const state = {
 const authMsg = document.getElementById("auth-msg");
 const userPill = document.getElementById("user-pill");
 const dashboard = document.getElementById("dashboard");
+const languageTemplates = {
+  javascript: `function solve(input) {
+  const { nums, target } = input;
+  // Write your code here
+  return [];
+}`,
+  python: `def solve(input_data):
+    nums, target = input_data['nums'], input_data['target']
+    # Write your code here
+    return []`,
+  java: `class Solution {
+    public int[] solve(int[] nums, int target) {
+        // Write your code here
+        return new int[]{};
+    }
+}`,
+  cpp: `vector<int> solve(vector<int> nums, int target) {
+    // Write your code here
+    return {};
+}`,
+  c: `int* solve(int* nums, int numsSize, int target, int* returnSize) {
+    // Write your code here
+    *returnSize = 2;
+    int* result = malloc(2 * sizeof(int));
+    return result;
+}`
+};
+
 const problemSearch = document.getElementById("problem-search");
 const difficultyFilter = document.getElementById("difficulty-filter");
+const languageSelector = document.getElementById("language-selector");
 const adminPanel = document.getElementById("admin-panel");
 
 function setText(id, text) {
@@ -64,6 +94,45 @@ function renderAuth() {
     adminPanel.classList.add("hidden");
     dashboard.classList.add("hidden");
   }
+  
+  // Set language selector value
+  if (languageSelector) {
+    languageSelector.value = state.selectedLanguage;
+  }
+}
+
+// Language selector event listener
+if (languageSelector) {
+  languageSelector.addEventListener("change", (e) => {
+    state.selectedLanguage = e.target.value;
+    localStorage.setItem("selectedLanguage", state.selectedLanguage);
+    
+    // Update code editor with new language template if problem is selected
+    if (state.selectedProblemId) {
+      const problem = state.problems.find(p => p.id === state.selectedProblemId);
+      if (problem) {
+        updateCodeEditor(problem);
+      }
+    }
+  });
+}
+
+function updateCodeEditor(problem) {
+  const codeEditor = document.getElementById("code-editor");
+  if (!codeEditor) return;
+  
+  // Get starter code for selected language or use template
+  let starterCode = problem.starterCode;
+  
+  // If problem has multi-language support
+  if (problem.multiLanguageStarterCode && problem.multiLanguageStarterCode[state.selectedLanguage]) {
+    starterCode = problem.multiLanguageStarterCode[state.selectedLanguage];
+  } else if (state.selectedLanguage !== 'javascript') {
+    // Use template for non-JavaScript languages if no specific starter code
+    starterCode = languageTemplates[state.selectedLanguage] || languageTemplates.javascript;
+  }
+  
+  codeEditor.value = starterCode;
 }
 
 async function loadAdminAnalytics() {
@@ -225,7 +294,7 @@ async function selectProblem(problemId) {
     document.getElementById("problem-meta").textContent = `${p.difficulty} | ${p.tags.join(", ")}`;
     document.getElementById("problem-statement").textContent = p.statement;
     renderProblemMetaBlocks(p);
-    document.getElementById("code-editor").value = p.starterCode;
+    updateCodeEditor(p);
     document.getElementById("judge-result").textContent = "";
     loadDiscussions();
     loadNote(problemId);
@@ -282,6 +351,7 @@ async function runOrSubmit(isSubmit) {
       body: JSON.stringify({
         problemId: state.selectedProblemId,
         code,
+        language: state.selectedLanguage,
         contestId: state.selectedContestId || null
       })
     });

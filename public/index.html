@@ -48,19 +48,41 @@
           </div>
         </article>
 
-        <article class="card">
-          <h2 id="problem-title">Select a Problem</h2>
-          <p id="problem-meta"></p>
-          <p id="problem-statement"></p>
-          <div id="problem-examples"></div>
-          <div id="problem-constraints"></div>
-          <div id="problem-hints"></div>
-          <textarea id="code-editor" rows="18" aria-label="Code editor"></textarea>
-          <div class="row">
-            <button id="run-btn" class="ghost">Run Code</button>
-            <button id="submit-btn">Submit</button>
+        <article class="card problem-editor">
+          <div class="problem-header">
+            <h2 id="problem-title">Select a Problem</h2>
+            <div class="problem-controls">
+              <select id="language-selector">
+                <option value="javascript">JavaScript</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+                <option value="cpp">C++</option>
+                <option value="c">C</option>
+              </select>
+            </div>
           </div>
-          <pre id="judge-result"></pre>
+          <div class="problem-content">
+            <div class="problem-description">
+              <p id="problem-meta"></p>
+              <div id="problem-statement"></div>
+              <div id="problem-examples"></div>
+              <div id="problem-constraints"></div>
+              <div id="problem-hints"></div>
+            </div>
+            <div class="code-editor-section">
+              <div class="editor-header">
+                <span>Code Editor</span>
+                <div class="editor-actions">
+                  <button id="run-btn" class="primary-btn">Run</button>
+                  <button id="submit-btn" class="submit-btn">Submit</button>
+                </div>
+              </div>
+              <textarea id="code-editor" rows="18" aria-label="Code editor"></textarea>
+              <div class="result-section">
+                <pre id="judge-result"></pre>
+              </div>
+            </div>
+          </div>
           <h3>Discussions</h3>
           <div class="row">
             <input id="discussion-input" placeholder="Share your approach..." aria-label="Discussion input" />

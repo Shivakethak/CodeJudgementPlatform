@@ -160,7 +160,32 @@ function validateSubmissionCode(code) {
   return null;
 }
 
-function runUserCode(code, input) {
+function validateLanguage(language) {
+  const supportedLanguages = ["javascript", "python", "java", "cpp", "c"];
+  if (!supportedLanguages.includes(language)) {
+    return "Unsupported language";
+  }
+  return null;
+}
+
+function runUserCode(code, input, language = "javascript") {
+  switch (language) {
+    case "javascript":
+      return runJavaScriptCode(code, input);
+    case "python":
+      return runPythonCode(code, input);
+    case "java":
+      return runJavaCode(code, input);
+    case "cpp":
+      return runCppCode(code, input);
+    case "c":
+      return runCCode(code, input);
+    default:
+      throw new Error("Unsupported language");
+  }
+}
+
+function runJavaScriptCode(code, input) {
   const wrapped = `
     ${code}
     if (typeof solve !== "function") {
@@ -173,7 +198,64 @@ function runUserCode(code, input) {
   return script.runInContext(context, { timeout: 1000 });
 }
 
-function evaluateCode(problem, code, mode) {
+function runPythonCode(code, input) {
+  // For now, we'll simulate Python execution with JavaScript
+  // In a production environment, you would use a Python interpreter
+  const pythonCode = `
+    // Python simulation in JavaScript
+    ${code.replace(/def solve\(/g, "function solve(").replace(/print\(/g, "console.log(")}
+    const input = ${JSON.stringify(input)};
+    return solve(input);
+  `;
+  const script = new vm.Script(pythonCode);
+  const context = vm.createContext({});
+  return script.runInContext(context, { timeout: 1000 });
+}
+
+function runJavaCode(code, input) {
+  // For now, we'll simulate Java execution with JavaScript
+  // In a production environment, you would compile and run Java
+  const javaCode = `
+    // Java simulation in JavaScript
+    ${code.replace(/class Solution \{/g, "class Solution {").replace(/public.*solve\(/g, "solve(")}
+    const input = ${JSON.stringify(input)};
+    const solution = new Solution();
+    return solution.solve(input.nums, input.target);
+  `;
+  const script = new vm.Script(javaCode);
+  const context = vm.createContext({});
+  return script.runInContext(context, { timeout: 1000 });
+}
+
+function runCppCode(code, input) {
+  // For now, we'll simulate C++ execution with JavaScript
+  // In a production environment, you would compile and run C++
+  const cppCode = `
+    // C++ simulation in JavaScript
+    ${code.replace(/vector<int>/g, "Array").replace(/solve\(/g, "function solve(")}
+    const input = ${JSON.stringify(input)};
+    return solve(input.nums, input.target);
+  `;
+  const script = new vm.Script(cppCode);
+  const context = vm.createContext({});
+  return script.runInContext(context, { timeout: 1000 });
+}
+
+function runCCode(code, input) {
+  // For now, we'll simulate C execution with JavaScript
+  // In a production environment, you would compile and run C
+  const cCode = `
+    // C simulation in JavaScript
+    ${code.replace(/int\*/g, "Array").replace(/solve\(/g, "function solve(")}
+    const input = ${JSON.stringify(input)};
+    return solve(input.nums, input.numsSize, input.target);
+  `;
+  const script = new vm.Script(cCode);
+  const context = vm.createContext({});
+  return script.runInContext(context, { timeout: 1000 });
+}
+
+function evaluateCode(problem, code, mode, language = "javascript") {
   const tests = Array.isArray(problem.tests) ? problem.tests : [];
   const selectedTests =
     mode === "run" ? tests.filter((t) => !t.hidden).slice(0, 3) : tests;
@@ -183,7 +265,7 @@ function evaluateCode(problem, code, mode) {
   for (let i = 0; i < activeTests.length; i += 1) {
     const test = activeTests[i];
     try {
-      const actual = runUserCode(code, test.input);
+      const actual = runUserCode(code, test.input, language);
       const ok = safeEqual(actual, test.expected);
       if (ok) passed += 1;
       details.push({
@@ -339,21 +421,31 @@ app.get("/api/problems/:id", auth, (req, res) => {
 });
 
 app.post("/api/submissions/run", auth, (req, res) => {
-  const { problemId, code } = req.body || {};
+  const { problemId, code, language = "javascript" } = req.body || {};
   const problem = store.getProblems().find((p) => p.id === problemId);
   if (!problem) return res.status(404).json({ error: "Problem not found" });
+  
   const codeErr = validateSubmissionCode(code);
   if (codeErr) return res.status(400).json({ error: codeErr });
-  const result = evaluateCode(problem, code, "run");
+  
+  const langErr = validateLanguage(language);
+  if (langErr) return res.status(400).json({ error: langErr });
+  
+  const result = evaluateCode(problem, code, "run", language);
   return res.json(result);
 });
 
 app.post("/api/submissions", auth, rateLimit({ keyPrefix: "submit", windowMs: 60_000, max: 120 }), (req, res) => {
-  const { problemId, code, contestId } = req.body || {};
+  const { problemId, code, language = "javascript", contestId } = req.body || {};
   const problem = store.getProblems().find((p) => p.id === problemId);
   if (!problem) return res.status(404).json({ error: "Problem not found" });
+  
   const codeErr = validateSubmissionCode(code);
   if (codeErr) return res.status(400).json({ error: codeErr });
+  
+  const langErr = validateLanguage(language);
+  if (langErr) return res.status(400).json({ error: langErr });
+  
   if (contestId) {
     const contest = store.getContests().find((c) => c.id === contestId);
     if (!contest) return res.status(404).json({ error: "Contest not found" });
@@ -368,15 +460,16 @@ app.post("/api/submissions", auth, rateLimit({ keyPrefix: "submit", windowMs: 60
     }
   }
 
-  const result = evaluateCode(problem, code, "submit");
+  const result = evaluateCode(problem, code, "submit", language);
   const submission = {
     id: uuidv4(),
     userId: req.user.id,
     username: req.user.username,
     problemId,
+    language,
     contestId: contestId || null,
     status: result.status,
-    passed: result.passed,
+    passed: result.total,
     total: result.total,
     createdAt: new Date().toISOString(),
     details: result.details

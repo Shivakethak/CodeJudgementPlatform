@@ -18,6 +18,7 @@ function getDefaultDb() {
       hints: p.hints || [],
       statement: p.statement,
       starterCode: p.starterCode,
+      multiLanguageStarterCode: p.multiLanguageStarterCode || {},
       tests: p.tests
     })),
     contests: [],

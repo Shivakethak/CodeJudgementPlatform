@@ -1,10 +1,291 @@
 {
-  "users": [],
-  "submissions": [],
-  "problems": [],
+  "users": [
+    {
+      "id": "503f5334-3f7e-4de4-bb6f-07998b8d8f97",
+      "username": "shiva_kethak",
+      "email": "kethakshivakethakch@gmail.com",
+      "passwordHash": "$2a$10$JnMtVaRRWWGCr8i8BaKtCOF4OTzjQ9IoRzvW3Ija2bpXQy6u8g7CG",
+      "solved": [
+        "two-sum"
+      ],
+      "isAdmin": true
+    }
+  ],
+  "submissions": [
+    {
+      "id": "9f9f1336-5ff6-44fb-9334-0883c1580949",
+      "userId": "503f5334-3f7e-4de4-bb6f-07998b8d8f97",
+      "username": "shiva_kethak",
+      "problemId": "two-sum",
+      "contestId": null,
+      "status": "Accepted",
+      "passed": 3,
+      "total": 3,
+      "createdAt": "2026-03-31T19:12:11.260Z",
+      "details": [
+        {
+          "testCase": 1,
+          "status": "Accepted",
+          "expected": [
+            0,
+            1
+          ],
+          "actual": [
+            0,
+            1
+          ],
+          "input": {
+            "nums": [
+              2,
+              7,
+              11,
+              15
+            ],
+            "target": 9
+          }
+        },
+        {
+          "testCase": 2,
+          "status": "Accepted",
+          "expected": [
+            1,
+            2
+          ],
+          "actual": [
+            1,
+            2
+          ],
+          "input": {
+            "nums": [
+              3,
+              2,
+              4
+            ],
+            "target": 6
+          }
+        },
+        {
+          "testCase": 3,
+          "status": "Accepted",
+          "expected": [
+            0,
+            1
+          ],
+          "actual": [
+            0,
+            1
+          ],
+          "input": {
+            "nums": [
+              3,
+              3
+            ],
+            "target": 6
+          }
+        }
+      ]
+    }
+  ],
+  "problems": [
+    {
+      "id": "two-sum",
+      "title": "Two Sum",
+      "difficulty": "Easy",
+      "tags": [
+        "Array",
+        "Hash Table"
+      ],
+      "constraints": [
+        "2 <= nums.length <= 10^4",
+        "-10^9 <= nums[i], target <= 10^9",
+        "Only one valid answer exists."
+      ],
+      "examples": [
+        {
+          "input": "nums = [2,7,11,15], target = 9",
+          "output": "[0,1]",
+          "explanation": "nums[0] + nums[1] = 9"
+        },
+        {
+          "input": "nums = [3,2,4], target = 6",
+          "output": "[1,2]"
+        }
+      ],
+      "hints": [
+        "Use a hash map to track visited values and their indices."
+      ],
+      "statement": "Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.",
+      "starterCode": "function solve(input) {\n  const { nums, target } = input;\n  // write your code here\n  return [];\n}",
+      "tests": [
+        {
+          "input": {
+            "nums": [
+              2,
+              7,
+              11,
+              15
+            ],
+            "target": 9
+          },
+          "expected": [
+            0,
+            1
+          ]
+        },
+        {
+          "input": {
+            "nums": [
+              3,
+              2,
+              4
+            ],
+            "target": 6
+          },
+          "expected": [
+            1,
+            2
+          ]
+        },
+        {
+          "input": {
+            "nums": [
+              3,
+              3
+            ],
+            "target": 6
+          },
+          "expected": [
+            0,
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "id": "valid-parentheses",
+      "title": "Valid Parentheses",
+      "difficulty": "Easy",
+      "tags": [
+        "String",
+        "Stack"
+      ],
+      "constraints": [
+        "1 <= s.length <= 10^4",
+        "s consists only of parentheses brackets."
+      ],
+      "examples": [
+        {
+          "input": "s = \"()[]{}\"",
+          "output": "true"
+        },
+        {
+          "input": "s = \"(]\"",
+          "output": "false"
+        }
+      ],
+      "hints": [
+        "Use a stack and a closing-to-opening character map."
+      ],
+      "statement": "Given a string s containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid.",
+      "starterCode": "function solve(input) {\n  const { s } = input;\n  // write your code here\n  return false;\n}",
+      "tests": [
+        {
+          "input": {
+            "s": "()"
+          },
+          "expected": true
+        },
+        {
+          "input": {
+            "s": "()[]{}"
+          },
+          "expected": true
+        },
+        {
+          "input": {
+            "s": "(]"
+          },
+          "expected": false
+        },
+        {
+          "input": {
+            "s": "([)]"
+          },
+          "expected": false
+        }
+      ]
+    },
+    {
+      "id": "binary-search",
+      "title": "Binary Search",
+      "difficulty": "Easy",
+      "tags": [
+        "Array",
+        "Binary Search"
+      ],
+      "constraints": [
+        "1 <= nums.length <= 10^4",
+        "nums is sorted in ascending order.",
+        "All integers are unique."
+      ],
+      "examples": [
+        {
+          "input": "nums = [-1,0,3,5,9,12], target = 9",
+          "output": "4"
+        },
+        {
+          "input": "nums = [-1,0,3,5,9,12], target = 2",
+          "output": "-1"
+        }
+      ],
+      "hints": [
+        "Maintain left and right pointers and shrink the range by midpoint."
+      ],
+      "statement": "Given a sorted array of integers nums and an integer target, return the index if target is found. Otherwise, return -1.",
+      "starterCode": "function solve(input) {\n  const { nums, target } = input;\n  // write your code here\n  return -1;\n}",
+      "tests": [
+        {
+          "input": {
+            "nums": [
+              -1,
+              0,
+              3,
+              5,
+              9,
+              12
+            ],
+            "target": 9
+          },
+          "expected": 4
+        },
+        {
+          "input": {
+            "nums": [
+              -1,
+              0,
+              3,
+              5,
+              9,
+              12
+            ],
+            "target": 2
+          },
+          "expected": -1
+        }
+      ]
+    }
+  ],
   "contests": [],
   "discussions": [],
   "notes": [],
   "playlists": [],
-  "refreshTokens": []
+  "refreshTokens": [
+    {
+      "id": "a4d4d5fa-5f30-45f7-bc1d-21877c55cddd",
+      "userId": "503f5334-3f7e-4de4-bb6f-07998b8d8f97",
+      "tokenHash": "d4c726c94e8ccb1b485b81bb82509dbcde7a3708c98f6f120570420ba6386dbd",
+      "expiresAt": "2026-04-09T09:53:14.999Z",
+      "createdAt": "2026-04-02T09:53:15.000Z"
+    }
+  ]
 }

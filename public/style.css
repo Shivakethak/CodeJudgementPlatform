@@ -150,6 +150,145 @@ li {
   margin-bottom: 4px;
 }
 
+/* LeetCode-like problem editor layout */
+.problem-editor {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 200px);
+  min-height: 600px;
+}
+
+.problem-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #334155;
+}
+
+.problem-controls {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+#language-selector {
+  background: #1e293b;
+  color: #e2e8f0;
+  border: 1px solid #475569;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.problem-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.problem-description {
+  overflow-y: auto;
+  padding-right: 16px;
+}
+
+.code-editor-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.primary-btn {
+  background: #3b82f6 !important;
+  color: white !important;
+  border: 1px solid #2563eb !important;
+  padding: 8px 16px !important;
+  font-weight: 500;
+}
+
+.primary-btn:hover {
+  background: #2563eb !important;
+}
+
+.submit-btn {
+  background: #22c55e !important;
+  color: white !important;
+  border: 1px solid #16a34a !important;
+  padding: 8px 16px !important;
+  font-weight: 500;
+}
+
+.submit-btn:hover {
+  background: #16a34a !important;
+}
+
+#code-editor {
+  flex: 1;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  background: #1e293b;
+  border: 1px solid #475569;
+  resize: none;
+  min-height: 300px;
+}
+
+.result-section {
+  margin-top: 12px;
+}
+
+#judge-result {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 13px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+  .problem-content {
+    grid-template-columns: 1fr;
+  }
+  
+  .problem-description {
+    max-height: 300px;
+  }
+}
+
+/* Enhanced button styles */
+button {
+  transition: all 0.2s ease;
+}
+
+button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* Better focus states */
+input:focus,
+textarea:focus,
+select:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
 .hidden {
   display: none;
 }

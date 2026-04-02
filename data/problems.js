@@ -21,6 +21,33 @@ const problems = [
   // write your code here
   return [];
 }`,
+    multiLanguageStarterCode: {
+      javascript: `function solve(input) {
+  const { nums, target } = input;
+  // write your code here
+  return [];
+}`,
+      python: `def solve(input_data):
+    nums, target = input_data['nums'], input_data['target']
+    # Write your code here
+    return []`,
+      java: `class Solution {
+    public int[] solve(int[] nums, int target) {
+        // Write your code here
+        return new int[]{};
+    }
+}`,
+      cpp: `vector<int> solve(vector<int> nums, int target) {
+    // Write your code here
+    return {};
+}`,
+      c: `int* solve(int* nums, int numsSize, int target, int* returnSize) {
+    // Write your code here
+    *returnSize = 2;
+    int* result = malloc(2 * sizeof(int));
+    return result;
+}`
+    },
     referenceSolution: (input) => {
       const seen = new Map();
       for (let i = 0; i < input.nums.length; i += 1) {
