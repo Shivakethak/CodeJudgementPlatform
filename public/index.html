@@ -7,222 +7,218 @@
     <link rel="stylesheet" href="./style.css" />
   </head>
   <body>
-    <header>
-      <h1>AlgoArena</h1>
-      <div id="user-pill"></div>
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="nav-left">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">AlgoArena</span>
+        </div>
+        <nav class="nav-menu">
+          <a href="#" class="nav-item">Problems</a>
+          <div class="nav-arrows">
+            <button class="nav-arrow">←</button>
+            <button class="nav-arrow">→</button>
+          </div>
+        </nav>
+      </div>
+      <div class="nav-center">
+        <button class="nav-btn play-btn">▶ Play</button>
+        <button class="nav-btn submit-btn">Submit</button>
+      </div>
+      <div class="nav-right">
+        <div class="timer">⏱ 00:00</div>
+        <button id="auth-btn" class="auth-btn">Register or log in</button>
+        <button class="premium-btn">Premium</button>
+      </div>
     </header>
 
-    <main>
-      <section id="auth-section" class="card">
-        <h2>Login / Register</h2>
-        <div class="row">
-          <input id="username" placeholder="Username (register only)" aria-label="Username" />
-          <input id="email" placeholder="Email" aria-label="Email" />
-          <input id="password" type="password" placeholder="Password" aria-label="Password" />
+    <!-- Main Content Area -->
+    <main class="main-container">
+      <!-- Left Panel - Problem Description -->
+      <section class="problem-panel">
+        <div class="problem-header">
+          <div class="problem-number">61.</div>
+          <h1 id="problem-title" class="problem-title">Rotate List</h1>
+          <span id="difficulty-badge" class="difficulty-badge medium">Medium</span>
         </div>
-        <div class="row">
-          <button id="register-btn">Register</button>
-          <button id="login-btn">Login</button>
-          <button id="logout-btn" class="ghost">Logout</button>
+        
+        <div class="problem-tabs">
+          <button class="tab-btn active" data-tab="description">Description</button>
+          <button class="tab-btn" data-tab="editorial">Editorial</button>
+          <button class="tab-btn" data-tab="solutions">Solutions</button>
+          <button class="tab-btn" data-tab="submissions">Submissions</button>
         </div>
-        <p id="auth-msg"></p>
-      </section>
 
-      <section id="dashboard" class="grid hidden">
-        <article class="card">
-          <h2>Problems</h2>
-          <div class="row">
-            <input id="problem-search" placeholder="Search problems..." aria-label="Search problems" />
-            <select id="difficulty-filter">
-              <option value="ALL">All</option>
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
-            </select>
-          </div>
-          <ul id="problems-list"></ul>
-          <div class="row">
-            <button id="problems-prev" class="ghost">Prev</button>
-            <span id="problems-page"></span>
-            <button id="problems-next" class="ghost">Next</button>
-          </div>
-        </article>
-
-        <article class="card problem-editor">
-          <div class="problem-header">
-            <h2 id="problem-title">Select a Problem</h2>
-            <div class="problem-controls">
-              <select id="language-selector">
-                <option value="javascript">JavaScript</option>
-                <option value="python">Python</option>
-                <option value="java">Java</option>
-                <option value="cpp">C++</option>
-                <option value="c">C</option>
-              </select>
+        <div class="problem-content">
+          <div class="tab-content active" id="description-tab">
+            <div class="problem-tags">
+              <span class="tag">Topics</span>
+              <span class="tag">Companies</span>
             </div>
-          </div>
-          <div class="problem-content">
-            <div class="problem-description">
-              <p id="problem-meta"></p>
-              <div id="problem-statement"></div>
-              <div id="problem-examples"></div>
-              <div id="problem-constraints"></div>
-              <div id="problem-hints"></div>
+            
+            <div id="problem-statement" class="problem-statement">
+              Given the head of a linked list, rotate the list to the right by k places.
             </div>
-            <div class="code-editor-section">
-              <div class="editor-header">
-                <span>Code Editor</span>
-                <div class="editor-actions">
-                  <button id="run-btn" class="primary-btn">Run</button>
-                  <button id="submit-btn" class="submit-btn">Submit</button>
+            
+            <div id="problem-examples" class="examples-section">
+              <h3>Example 1:</h3>
+              <div class="example-diagram">
+                <div class="linked-list-diagram">
+                  <div class="node">1</div>
+                  <div class="arrow">→</div>
+                  <div class="node">2</div>
+                  <div class="arrow">→</div>
+                  <div class="node">3</div>
+                  <div class="arrow">→</div>
+                  <div class="node">4</div>
+                  <div class="arrow">→</div>
+                  <div class="node">5</div>
                 </div>
               </div>
-              <textarea id="code-editor" rows="18" aria-label="Code editor"></textarea>
-              <div class="result-section">
-                <pre id="judge-result"></pre>
+              <div class="example-input">
+                <strong>Input:</strong> head = [1,2,3,4,5], k = 2
+              </div>
+              <div class="example-output">
+                <strong>Output:</strong> [4,5,1,2,3]
+              </div>
+              <div class="example-explanation">
+                <strong>Explanation:</strong> rotate 1 step to the right: [5,1,2,3,4]
+                rotate 2 steps to the right: [4,5,1,2,3]
               </div>
             </div>
+            
+            <div id="problem-constraints" class="constraints-section">
+              <h3>Constraints:</h3>
+              <ul id="constraints-list"></ul>
+            </div>
+            
+            <div id="problem-hints" class="hints-section">
+              <h3>Hints:</h3>
+              <ul id="hints-list"></ul>
+            </div>
           </div>
-          <h3>Discussions</h3>
-          <div class="row">
-            <input id="discussion-input" placeholder="Share your approach..." aria-label="Discussion input" />
-            <button id="discussion-post-btn">Post</button>
+          
+          <div class="tab-content" id="editorial-tab">
+            <div class="coming-soon">Editorial coming soon...</div>
           </div>
-          <ul id="discussion-list"></ul>
-        </article>
-
-        <article class="card">
-          <h2>My Submissions</h2>
-          <ul id="submissions-list"></ul>
-          <div class="row">
-            <button id="subs-prev" class="ghost">Prev</button>
-            <span id="subs-page"></span>
-            <button id="subs-next" class="ghost">Next</button>
+          
+          <div class="tab-content" id="solutions-tab">
+            <div class="coming-soon">Solutions coming soon...</div>
           </div>
-          <pre id="submission-detail">Click a submission to see details.</pre>
-        </article>
-
-        <article class="card">
-          <h2>My Profile</h2>
-          <ul id="profile-stats"></ul>
-          <button id="export-submissions-btn" class="ghost">Export My Submissions (CSV)</button>
-        </article>
-
-        <article class="card">
-          <h2>Leaderboard</h2>
-          <ul id="leaderboard-list"></ul>
-        </article>
-
-        <article class="card">
-          <h2>Contests</h2>
-          <p id="contest-active"></p>
-          <ul id="contests-list"></ul>
-          <h3>Contest Leaderboard</h3>
-          <ul id="contest-leaderboard"></ul>
-        </article>
-
-        <article class="card">
-          <h2>Daily Challenge</h2>
-          <p id="daily-challenge-view">Loading daily challenge...</p>
-        </article>
-
-        <article class="card">
-          <h2>Recommendations</h2>
-          <ul id="recommendations-list"></ul>
-        </article>
-
-        <article class="card">
-          <h2>My Playlists</h2>
-          <div class="row">
-            <input id="playlist-name" placeholder="New playlist name" aria-label="Playlist name" />
-            <button id="create-playlist-btn">Create</button>
+          
+          <div class="tab-content" id="submissions-tab">
+            <div class="coming-soon">Submissions coming soon...</div>
           </div>
-          <div class="row">
-            <select id="playlist-select"></select>
-            <button id="add-selected-problem-btn" class="ghost">Add Selected Problem</button>
+        </div>
+        
+        <div class="problem-footer">
+          <div class="social-actions">
+            <button class="action-btn">👍 234</button>
+            <button class="action-btn">💬 12</button>
+            <button class="action-btn">⭐ 56</button>
+            <button class="action-btn">📤 Share</button>
           </div>
-          <ul id="playlists-list"></ul>
-        </article>
+          <div class="online-status">89 Online</div>
+        </div>
+      </section>
 
-        <article class="card">
-          <h2>My Notes</h2>
-          <p class="muted">Notes are saved per selected problem.</p>
-          <textarea
-            id="problem-note-input"
-            rows="8"
-            placeholder="Write your approach, edge cases, and tricks..."
-            aria-label="Problem notes"
-          ></textarea>
-          <div class="row">
-            <button id="save-note-btn">Save Note</button>
+      <!-- Right Panel - Code Editor -->
+      <section class="editor-panel">
+        <div class="editor-header">
+          <div class="editor-tabs">
+            <button class="editor-tab active">Code</button>
           </div>
-          <p id="note-msg"></p>
-        </article>
-
-        <article class="card">
-          <h2>Public Profiles</h2>
-          <div class="row">
-            <input id="profile-search-username" placeholder="Enter username" aria-label="Profile username search" />
-            <button id="profile-load-btn">Load</button>
-          </div>
-          <pre id="public-profile-view">Search a username to view public profile.</pre>
-        </article>
-
-        <article id="admin-panel" class="card hidden">
-          <h2>Admin Panel</h2>
-          <p class="muted">Create problems and contests.</p>
-          <div class="row">
-            <input id="admin-problem-title" placeholder="Problem title" />
-            <select id="admin-problem-difficulty">
-              <option value="Easy">Easy</option>
-              <option value="Medium">Medium</option>
-              <option value="Hard">Hard</option>
+          <div class="editor-controls">
+            <select id="language-selector" class="language-selector">
+              <option value="java">Java</option>
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="cpp">C++</option>
+              <option value="c">C</option>
+            </select>
+            <select class="auto-selector">
+              <option>Auto</option>
             </select>
           </div>
-          <div class="row">
-            <input id="admin-problem-tags" placeholder="Tags comma separated" />
+        </div>
+        
+        <div class="code-editor-container">
+          <div class="line-numbers">
+            <span>1</span>
+            <span>2</span>
+            <span>3</span>
+            <span>4</span>
+            <span>5</span>
+            <span>6</span>
+            <span>7</span>
+            <span>8</span>
+            <span>9</span>
+            <span>10</span>
+            <span>11</span>
+            <span>12</span>
+            <span>13</span>
+            <span>14</span>
+            <span>15</span>
+            <span>16</span>
+            <span>17</span>
+            <span>18</span>
+            <span>19</span>
+            <span>20</span>
           </div>
-          <div class="row">
-            <input id="admin-problem-statement" placeholder="Statement" />
+          <textarea id="code-editor" class="code-editor" spellcheck="false"></textarea>
+        </div>
+        
+        <div class="editor-status">
+          <span class="status-text">Saved</span>
+        </div>
+        
+        <div class="auth-banner" id="auth-banner">
+          <div class="banner-content">
+            <span>🔒 You need to log in / sign up to run or submit</span>
+            <button id="banner-login-btn" class="banner-login-btn">Log in</button>
           </div>
-          <div class="row">
-            <textarea id="admin-problem-code" rows="6" placeholder="Starter code"></textarea>
+        </div>
+        
+        <div class="output-section">
+          <div class="output-tabs">
+            <button class="output-tab active" data-output="testcase">Testcase</button>
+            <button class="output-tab" data-output="result">Test Result</button>
           </div>
-          <div class="row">
-            <textarea
-              id="admin-problem-tests"
-              rows="6"
-              placeholder='Tests JSON, e.g. [{"input":{"n":2},"expected":4}]'
-            ></textarea>
+          <div class="output-content">
+            <div class="output-panel active" id="testcase-panel">
+              <div class="testcase-content">
+                <p>You must run your code first</p>
+              </div>
+            </div>
+            <div class="output-panel" id="result-panel">
+              <pre id="judge-result">No test results yet...</pre>
+            </div>
           </div>
-          <button id="admin-create-problem-btn">Create Problem</button>
-          <p id="admin-msg"></p>
-          <hr />
-          <h3>Create Contest</h3>
-          <div class="row">
-            <input id="admin-contest-title" placeholder="Contest title" />
-          </div>
-          <div class="row">
-            <input id="admin-contest-description" placeholder="Contest description" />
-          </div>
-          <div class="row">
-            <input id="admin-contest-start" placeholder="Start ISO, e.g. 2026-04-01T09:00:00.000Z" />
-          </div>
-          <div class="row">
-            <input id="admin-contest-end" placeholder="End ISO, e.g. 2026-04-01T11:00:00.000Z" />
-          </div>
-          <div class="row">
-            <input id="admin-contest-problems" placeholder="Problem IDs comma separated" />
-          </div>
-          <button id="admin-create-contest-btn">Create Contest</button>
-          <hr />
-          <h3>Analytics</h3>
-          <button id="admin-load-analytics-btn" class="ghost">Load Analytics</button>
-          <pre id="admin-analytics-view">Admin analytics will appear here.</pre>
-        </article>
+        </div>
       </section>
     </main>
 
+    <!-- Hidden Auth Section (for modal/popup) -->
+    <div id="auth-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Login / Register</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input id="username" placeholder="Username (register only)" aria-label="Username" />
+          <input id="email" placeholder="Email" aria-label="Email" />
+          <input id="password" type="password" placeholder="Password" aria-label="Password" />
+          <div class="auth-buttons">
+            <button id="register-btn">Register</button>
+            <button id="login-btn">Login</button>
+          </div>
+          <p id="auth-msg"></p>
+        </div>
+      </div>
+    </div>
+
     <script src="./app.js"></script>
   </body>
-  </html>
+</html>
