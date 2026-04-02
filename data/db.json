@@ -9,6 +9,14 @@
         "two-sum"
       ],
       "isAdmin": true
+    },
+    {
+      "id": "5e692a45-0f42-4bdc-ba87-2f6ca9e7af5d",
+      "username": "Nithin",
+      "email": "nithinkumarbandaru2020@gmail.com",
+      "passwordHash": "$2a$10$cLRF/SNNmYJcUMudaOS6TeglT5TLtewvkbeAFVaiwRG0jaSkIEhcK",
+      "solved": [],
+      "isAdmin": false
     }
   ],
   "submissions": [
@@ -286,6 +294,13 @@
       "tokenHash": "d4c726c94e8ccb1b485b81bb82509dbcde7a3708c98f6f120570420ba6386dbd",
       "expiresAt": "2026-04-09T09:53:14.999Z",
       "createdAt": "2026-04-02T09:53:15.000Z"
+    },
+    {
+      "id": "263e3590-25d3-40d4-aebc-94cd6cced9da",
+      "userId": "5e692a45-0f42-4bdc-ba87-2f6ca9e7af5d",
+      "tokenHash": "28beb7040209a3a96dd8b5f4de73e73ea11dade8430ca5efb9b3d11010b5d05a",
+      "expiresAt": "2026-04-09T15:59:58.643Z",
+      "createdAt": "2026-04-02T15:59:58.643Z"
     }
   ]
 }
