@@ -1,95 +1,182 @@
-<<<<<<< HEAD
-# CodeJudge Platform
+# 🚀 CodeJudge Platform
 
-A beautiful, production-level, dockerized Online Judge Platform (LeetCode Clone).
+A production-ready **LeetCode-like Online Judge Platform** built using modern full-stack technologies.
+It allows users to solve coding problems, run code in multiple languages, participate in challenges, and prepare for technical interviews.
 
-## Architecture
+---
 
-* **Frontend**: React + Vite (Vanilla CSS, Monaco Editor)
-* **Backend**: Node.js + Express
-* **Execution Service**: Node.js + BullMQ + Docker
-* **Database**: MongoDB
-* **Queue / Cache**: Redis
+## 🌟 Features
 
-## Setup Instructions
+### 💻 Code Execution Engine
 
-1. Ensure you have Docker and Docker Compose installed.
-2. Run the application:
+* Multi-language support:
+
+  * Python
+  * Java
+  * C
+  * C++
+  * JavaScript
+* Secure execution using Docker containers
+* Resource limits (CPU, memory, timeout)
+* Output validation with whitespace handling
+
+---
+
+### 🧠 Problem Solving
+
+* 500+ algorithmic problems
+* Difficulty levels: Easy, Medium, Hard
+* Categories: Arrays, Strings, Graphs, DP, Trees
+* Search and filtering system
+
+---
+
+### 📊 Study Plans
+
+* Top Interview 150
+* LeetCode 75
+* SQL 50
+* Progress tracking with resume functionality
+
+---
+
+### 🏆 Weekly Challenges
+
+* Join weekly contests
+* Solve problems to earn points
+* Leaderboard system
+* Countdown timer
+
+---
+
+### 🎯 Mock Interview
+
+* Real interview simulation
+* Timed assessments
+* Mixed difficulty problems
+* Score and performance analysis
+
+---
+
+### 🏢 Interview Preparation
+
+* Company-wise problem sets:
+
+  * Google
+  * Amazon
+  * Meta
+  * Microsoft
+* Topic-based filtering
+
+---
+
+### ⭐ Additional Features
+
+* Favorites system
+* User profile with submission history
+* Calendar + streak tracking
+* Modern dark UI (LeetCode-inspired)
+* Responsive design
+
+---
+
+## 🏗️ Architecture
+
+| Layer            | Technology                   |
+| ---------------- | ---------------------------- |
+| Frontend         | React + Vite + Monaco Editor |
+| Backend          | Node.js + Express            |
+| Execution Worker | Node.js + BullMQ             |
+| Database         | MongoDB                      |
+| Queue            | Redis                        |
+| Execution        | Docker containers            |
+
+---
+
+## ⚙️ Setup Instructions
+
+### 🔹 Prerequisites
+
+Make sure you have installed:
+
+* Docker Desktop
+* Git
+
+---
+
+### 🔹 Clone Repository
+
+```bash
+git clone https://github.com/Shivakethak/CodeJudgementPlatform.git
+cd CodeJudgementPlatform
+```
+
+---
+
+### 🔹 Run the Application
 
 ```bash
 docker compose up --build
 ```
 
-### Accessing the Platform
+---
 
-- **Frontend Interface:** [http://localhost:3000](http://localhost:3000)
-- **Backend API:** [http://localhost:5000](http://localhost:5000)
+### 🌐 Access the Platform
 
-## Features Included
-1. Asynchronous execution using **Redis + BullMQ**.
-2. **Docker-in-Docker** secure execution sandboxing for submitted user code.
-3. Pre-seeded algorithms with language templates.
-4. Auto-refreshing status checking (1-2s polling cadence).
-5. Dark-themed dynamic layout (Glassmorphism design aesthetic).
-6. Execution time metrics and standard status handling.
-=======
-# AlgoArena
+* Frontend: http://localhost:3000
+* Backend API: http://localhost:5000
 
-AlgoArena is a coding judgment platform inspired by LeetCode, built with Node.js + Express and a lightweight frontend.
+---
 
-## Features
+## 📁 Project Structure
 
-- User registration and login with JWT authentication
-- Refresh token support with token rotation
-- Rate limiting and structured request validation
-- Problem catalog with difficulty and tags
-- Interactive code editor and submit flow
-- JavaScript code judging against hidden test cases
-- Submission history for each user
-- Leaderboard based on solved problems
-- Admin analytics, backup/restore, contests, discussions, playlists, and notes
-- Backup checksum verification for safer restores
-
-## Tech Stack
-
-- Backend: Express, JWT, bcryptjs
-- Judge: Node `vm` sandbox with timeout
-- Frontend: Vanilla HTML/CSS/JS
-- Testing: Node test runner + Supertest
-
-## Run Locally
-
-1. Install dependencies:
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app:
-
-   ```bash
-   npm run dev
-   ```
-
-Optional: copy `.env.example` to `.env` and update secrets.
-
-3. Open:
-
-   [http://localhost:3000](http://localhost:3000)
-
-## Run with Docker
-
-```bash
-docker compose up --build -d
+```
+CodeJudgementPlatform/
+│
+├── frontend/            # React frontend
+├── backend/             # Express backend
+├── execution-worker/    # Code execution worker
+├── docker-compose.yml
+├── README.md
 ```
 
-Then open [http://localhost:3000](http://localhost:3000).
+---
 
-Detailed instructions: see `DEPLOYMENT.md`.
+## 🔐 Security Features
 
-## Important Notes
+* Code is NOT stored permanently in database
+* Execution inside isolated Docker containers
+* No external network access inside containers
+* Strict CPU and memory limits
+* Timeout handling for infinite loops
 
-- This is an MVP and currently supports JavaScript submissions only.
-- Data is persisted in `data/db.json` for local development.
-- For full production, migrate to managed DB + isolated code execution containers.
->>>>>>> b0c9e5dcf62ac72e525d87da20e8ccc23156bb2f
+---
+
+## 📌 Important Notes
+
+* Do NOT commit node_modules
+* Ensure Docker is running before starting
+* First run may take time due to Docker build
+
+---
+
+## 👨‍💻 Authors
+
+**Nithin Kumar**
+**Shiva Kethak**
+**Buvan**
+
+---
+
+## 🚀 Future Improvements
+
+* Cloud deployment (AWS / Render)
+* Real-time collaboration
+* Contest mode with rankings
+* AI-based code suggestions
+
+---
+
+## ⭐ Support
+
+If you like this project, give it a ⭐ on GitHub!
