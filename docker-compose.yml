@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:80"
+    environment:
+      - VITE_API_URL=http://localhost:5000/api
+    depends_on:
+      - backend
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - MONGO_URI=mongodb://mongo:27017/codejudge
+      - JWT_SECRET=supersecretjwtkey_change_in_prod
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - mongo
+      - redis
+
+  worker:
+    build:
+      context: ./execution-worker
+    environment:
+      - MONGO_URI=mongodb://mongo:27017/codejudge
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    volumes:
+      # Allows worker to spawn containers
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - mongo
+      - redis
+      - backend
+
+  mongo:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+volumes:
+  mongo_data:
