@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AlgoArena</title>
+    <link rel="stylesheet" href="./style.css" />
+  </head>
+  <body>
+    <!-- Top Navigation Bar -->
+    <header class="top-nav">
+      <div class="nav-left">
+        <div class="logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">AlgoArena</span>
+        </div>
+        <nav class="nav-menu">
+          <a href="#" class="nav-item">Problems</a>
+          <div class="nav-arrows">
+            <button class="nav-arrow">←</button>
+            <button class="nav-arrow">→</button>
+          </div>
+        </nav>
+      </div>
+      <div class="nav-center">
+        <button class="nav-btn play-btn">▶ Play</button>
+        <button class="nav-btn submit-btn">Submit</button>
+      </div>
+      <div class="nav-right">
+        <div class="timer">⏱ 00:00</div>
+        <button id="auth-btn" class="auth-btn">Register or log in</button>
+        <button class="premium-btn">Premium</button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="main-container">
+      <!-- Left Panel - Problem Description -->
+      <section class="problem-panel">
+        <div class="problem-header">
+          <div class="problem-number">61.</div>
+          <h1 id="problem-title" class="problem-title">Rotate List</h1>
+          <span id="difficulty-badge" class="difficulty-badge medium">Medium</span>
+        </div>
+        
+        <div class="problem-tabs">
+          <button class="tab-btn active" data-tab="description">Description</button>
+          <button class="tab-btn" data-tab="editorial">Editorial</button>
+          <button class="tab-btn" data-tab="solutions">Solutions</button>
+          <button class="tab-btn" data-tab="submissions">Submissions</button>
+        </div>
+
+        <div class="problem-content">
+          <div class="tab-content active" id="description-tab">
+            <div class="problem-tags">
+              <span class="tag">Topics</span>
+              <span class="tag">Companies</span>
+            </div>
+            
+            <div id="problem-statement" class="problem-statement">
+              Given the head of a linked list, rotate the list to the right by k places.
+            </div>
+            
+            <div id="problem-examples" class="examples-section">
+              <h3>Example 1:</h3>
+              <div class="example-diagram">
+                <div class="linked-list-diagram">
+                  <div class="node">1</div>
+                  <div class="arrow">→</div>
+                  <div class="node">2</div>
+                  <div class="arrow">→</div>
+                  <div class="node">3</div>
+                  <div class="arrow">→</div>
+                  <div class="node">4</div>
+                  <div class="arrow">→</div>
+                  <div class="node">5</div>
+                </div>
+              </div>
+              <div class="example-input">
+                <strong>Input:</strong> head = [1,2,3,4,5], k = 2
+              </div>
+              <div class="example-output">
+                <strong>Output:</strong> [4,5,1,2,3]
+              </div>
+              <div class="example-explanation">
+                <strong>Explanation:</strong> rotate 1 step to the right: [5,1,2,3,4]
+                rotate 2 steps to the right: [4,5,1,2,3]
+              </div>
+            </div>
+            
+            <div id="problem-constraints" class="constraints-section">
+              <h3>Constraints:</h3>
+              <ul id="constraints-list"></ul>
+            </div>
+            
+            <div id="problem-hints" class="hints-section">
+              <h3>Hints:</h3>
+              <ul id="hints-list"></ul>
+            </div>
+          </div>
+          
+          <div class="tab-content" id="editorial-tab">
+            <div class="coming-soon">Editorial coming soon...</div>
+          </div>
+          
+          <div class="tab-content" id="solutions-tab">
+            <div class="coming-soon">Solutions coming soon...</div>
+          </div>
+          
+          <div class="tab-content" id="submissions-tab">
+            <div class="coming-soon">Submissions coming soon...</div>
+          </div>
+        </div>
+        
+        <div class="problem-footer">
+          <div class="social-actions">
+            <button class="action-btn">👍 234</button>
+            <button class="action-btn">💬 12</button>
+            <button class="action-btn">⭐ 56</button>
+            <button class="action-btn">📤 Share</button>
+          </div>
+          <div class="online-status">89 Online</div>
+        </div>
+      </section>
+
+      <!-- Right Panel - Code Editor -->
+      <section class="editor-panel">
+        <div class="editor-header">
+          <div class="editor-tabs">
+            <button class="editor-tab active">Code</button>
+          </div>
+          <div class="editor-controls">
+            <select id="language-selector" class="language-selector">
+              <option value="java">Java</option>
+              <option value="python">Python</option>
+              <option value="javascript">JavaScript</option>
+              <option value="cpp">C++</option>
+              <option value="c">C</option>
+            </select>
+            <select class="auto-selector">
+              <option>Auto</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="code-editor-container">
+          <div class="line-numbers">
+            <span>1</span>
+            <span>2</span>
+            <span>3</span>
+            <span>4</span>
+            <span>5</span>
+            <span>6</span>
+            <span>7</span>
+            <span>8</span>
+            <span>9</span>
+            <span>10</span>
+            <span>11</span>
+            <span>12</span>
+            <span>13</span>
+            <span>14</span>
+            <span>15</span>
+            <span>16</span>
+            <span>17</span>
+            <span>18</span>
+            <span>19</span>
+            <span>20</span>
+          </div>
+          <textarea id="code-editor" class="code-editor" spellcheck="false"></textarea>
+        </div>
+        
+        <div class="editor-status">
+          <span class="status-text">Saved</span>
+        </div>
+        
+        <div class="auth-banner" id="auth-banner">
+          <div class="banner-content">
+            <span>🔒 You need to log in / sign up to run or submit</span>
+            <button id="banner-login-btn" class="banner-login-btn">Log in</button>
+          </div>
+        </div>
+        
+        <div class="output-section">
+          <div class="output-tabs">
+            <button class="output-tab active" data-output="testcase">Testcase</button>
+            <button class="output-tab" data-output="result">Test Result</button>
+          </div>
+          <div class="output-content">
+            <div class="output-panel active" id="testcase-panel">
+              <div class="testcase-content">
+                <p>You must run your code first</p>
+              </div>
+            </div>
+            <div class="output-panel" id="result-panel">
+              <pre id="judge-result">No test results yet...</pre>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Hidden Auth Section (for modal/popup) -->
+    <div id="auth-modal" class="modal hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>Login / Register</h2>
+          <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <input id="username" placeholder="Username (register only)" aria-label="Username" />
+          <input id="email" placeholder="Email" aria-label="Email" />
+          <input id="password" type="password" placeholder="Password" aria-label="Password" />
+          <div class="auth-buttons">
+            <button id="register-btn">Register</button>
+            <button id="login-btn">Login</button>
+          </div>
+          <p id="auth-msg"></p>
+        </div>
+      </div>
+    </div>
+
+    <script src="./app.js"></script>
+  </body>
+</html>
