@@ -1,182 +1,157 @@
 # 🚀 CodeJudge Platform
 
-A production-ready **LeetCode-like Online Judge Platform** built using modern full-stack technologies.
-It allows users to solve coding problems, run code in multiple languages, participate in challenges, and prepare for technical interviews.
+A full-stack web application for practicing coding problems, participating in contests, and improving problem-solving skills — inspired by platforms like LeetCode and HackerRank.
 
 ---
 
-## 🌟 Features
+## 📌 Features
 
-### 💻 Code Execution Engine
-
-* Multi-language support:
-
-  * Python
-  * Java
-  * C
-  * C++
-  * JavaScript
-* Secure execution using Docker containers
-* Resource limits (CPU, memory, timeout)
-* Output validation with whitespace handling
+* 🧠 Solve coding problems with multiple test cases
+* ⚡ Real-time code execution using execution worker
+* 🏆 Participate in contests and challenges
+* 📊 Track submissions and performance
+* 👤 User authentication and profiles
+* 💬 Discussion and community features
+* 📚 Study plans and mock interviews
 
 ---
 
-### 🧠 Problem Solving
+## 🏗️ Tech Stack
 
-* 500+ algorithmic problems
-* Difficulty levels: Easy, Medium, Hard
-* Categories: Arrays, Strings, Graphs, DP, Trees
-* Search and filtering system
+### Frontend
 
----
+* React.js
+* Vite
+* Tailwind CSS
 
-### 📊 Study Plans
+### Backend
 
-* Top Interview 150
-* LeetCode 75
-* SQL 50
-* Progress tracking with resume functionality
+* Node.js
+* Express.js
 
----
+### Database
 
-### 🏆 Weekly Challenges
+* MongoDB
 
-* Join weekly contests
-* Solve problems to earn points
-* Leaderboard system
-* Countdown timer
+### Other Tools
+
+* Docker
+* Redis (for caching and queues)
+* WebSockets (real-time features)
 
 ---
 
-### 🎯 Mock Interview
+## 📂 Project Structure
 
-* Real interview simulation
-* Timed assessments
-* Mixed difficulty problems
-* Score and performance analysis
-
----
-
-### 🏢 Interview Preparation
-
-* Company-wise problem sets:
-
-  * Google
-  * Amazon
-  * Meta
-  * Microsoft
-* Topic-based filtering
-
----
-
-### ⭐ Additional Features
-
-* Favorites system
-* User profile with submission history
-* Calendar + streak tracking
-* Modern dark UI (LeetCode-inspired)
-* Responsive design
-
----
-
-## 🏗️ Architecture
-
-| Layer            | Technology                   |
-| ---------------- | ---------------------------- |
-| Frontend         | React + Vite + Monaco Editor |
-| Backend          | Node.js + Express            |
-| Execution Worker | Node.js + BullMQ             |
-| Database         | MongoDB                      |
-| Queue            | Redis                        |
-| Execution        | Docker containers            |
+```
+CodeJudgePlatform/
+│
+├── frontend/             # React frontend
+├── backend/              # Node.js backend
+├── execution-worker/     # Code execution service
+├── scripts/              # Utility scripts
+├── docker-compose.yml    # Docker configuration
+```
 
 ---
 
 ## ⚙️ Setup Instructions
 
-### 🔹 Prerequisites
-
-Make sure you have installed:
-
-* Docker Desktop
-* Git
-
----
-
-### 🔹 Clone Repository
+### 🔹 1. Clone the repository
 
 ```bash
 git clone https://github.com/Shivakethak/CodeJudgementPlatform.git
-cd CodeJudgementPlatform
+cd CodeJudgePlatform
 ```
 
 ---
 
-### 🔹 Run the Application
+### 🔹 2. Setup environment variables
+
+Create `.env` files in:
+
+* `backend/`
+* `frontend/`
+* `execution-worker/`
+
+Use `.env.example` as reference.
+
+---
+
+### 🔹 3. Run using Docker (Recommended)
 
 ```bash
-docker compose up --build
+docker-compose up --build
 ```
 
 ---
 
-### 🌐 Access the Platform
+### 🔹 4. Run manually (optional)
 
-* Frontend: http://localhost:3000
-* Backend API: http://localhost:5000
+#### Backend
 
----
-
-## 📁 Project Structure
-
-```
-CodeJudgementPlatform/
-│
-├── frontend/            # React frontend
-├── backend/             # Express backend
-├── execution-worker/    # Code execution worker
-├── docker-compose.yml
-├── README.md
+```bash
+cd backend
+npm install
+npm run dev
 ```
 
----
+#### Frontend
 
-## 🔐 Security Features
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-* Code is NOT stored permanently in database
-* Execution inside isolated Docker containers
-* No external network access inside containers
-* Strict CPU and memory limits
-* Timeout handling for infinite loops
+#### Execution Worker
 
----
-
-## 📌 Important Notes
-
-* Do NOT commit node_modules
-* Ensure Docker is running before starting
-* First run may take time due to Docker build
+```bash
+cd execution-worker
+npm install
+npm start
+```
 
 ---
 
-## 👨‍💻 Authors
+## 🌐 Application Flow
 
-**Nithin Kumar**
-**Shiva Kethak**
-**Buvan**
-
----
-
-## 🚀 Future Improvements
-
-* Cloud deployment (AWS / Render)
-* Real-time collaboration
-* Contest mode with rankings
-* AI-based code suggestions
+1. User logs in / registers
+2. Selects problems or contests
+3. Writes and submits code
+4. Code is sent to execution worker
+5. Results are returned and displayed
 
 ---
 
-## ⭐ Support
+## 📸 Screens
 
-If you like this project, give it a ⭐ on GitHub!
+* Problem solving interface
+* Contest room
+* User dashboard
+* Discussion forum
+
+---
+
+## 🤝 Contributors
+
+* Your Friend (Repo Owner)
+* Nithin Kumar (Contributor)
+
+---
+
+## 📄 License
+
+This project is for educational purposes.
+
+---
+
+## ⭐ Acknowledgements
+
+Inspired by platforms like:
+
+* LeetCode
+* HackerRank
+* Codeforces
+
+---

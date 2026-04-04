@@ -1,5 +1,33 @@
 const WeeklyChallenge = require('../models/WeeklyChallenge');
 const UserChallengeProgress = require('../models/UserChallengeProgress');
+const cacheService = require('../services/cacheService');
+
+exports.listContests = async (req, res) => {
+  try {
+    const now = new Date();
+    const challenges = await WeeklyChallenge.find()
+      .sort({ startDate: -1 })
+      .limit(40)
+      .select('title description slug kind startDate endDate problems penaltyPerWrong')
+      .lean();
+
+    const counts = await UserChallengeProgress.aggregate([
+      { $group: { _id: '$challengeId', participants: { $sum: 1 } } }
+    ]);
+    const countMap = Object.fromEntries(counts.map(c => [c._id.toString(), c.participants]));
+
+    const payload = challenges.map(c => ({
+      ...c,
+      isLive: new Date(c.startDate) <= now && now <= new Date(c.endDate),
+      participantCount: countMap[c._id.toString()] || 0,
+      problemCount: Array.isArray(c.problems) ? c.problems.length : 0
+    }));
+
+    res.json(payload);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 exports.getCurrentChallenge = async (req, res) => {
   try {
@@ -8,7 +36,7 @@ exports.getCurrentChallenge = async (req, res) => {
       startDate: { $lte: now },
       endDate: { $gte: now }
     }).populate('problems', 'title difficulty isPremium');
-    
+
     if (!challenge) {
       return res.status(404).json({ message: 'No active challenge found' });
     }
@@ -23,7 +51,7 @@ exports.getChallengeById = async (req, res) => {
   try {
     const challenge = await WeeklyChallenge.findById(req.params.id)
       .populate('problems', 'title difficulty isPremium');
-    
+
     if (!challenge) {
       return res.status(404).json({ message: 'Challenge not found' });
     }
@@ -44,7 +72,6 @@ exports.joinChallenge = async (req, res) => {
       return res.status(404).json({ message: 'Challenge not found' });
     }
 
-    // Check if progress already exists
     let progress = await UserChallengeProgress.findOne({ userId, challengeId });
     if (progress) {
       return res.status(400).json({ message: 'Already joined this challenge' });
@@ -54,6 +81,7 @@ exports.joinChallenge = async (req, res) => {
       userId,
       challengeId,
       solvedProblems: [],
+      wrongAttempts: 0,
       timeTaken: 0,
       score: 0
     });
@@ -67,41 +95,20 @@ exports.joinChallenge = async (req, res) => {
 exports.getLeaderboard = async (req, res) => {
   try {
     const challengeId = req.params.id;
-    // Rank users based on Problems solved descending, time taken ascending
+    const cacheKey = cacheService.key.challengeLeaderboard(challengeId);
+    const cached = await cacheService.getJSON(cacheKey);
+    if (cached) return res.json(cached);
+
     const leaderboard = await UserChallengeProgress.find({ challengeId })
       .populate('userId', 'email')
       .sort({ score: -1, timeTaken: 1 })
-      .limit(50); // Get top 50
-    
+      .limit(100)
+      .lean();
+
+    await cacheService.setJSON(cacheKey, leaderboard, 60);
+
     res.json(leaderboard);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
-};
-
-// Internal API to increment scores whenever a user gets a Submission "Accepted"
-exports.incrementChallengeProgress = async (userId, problemId, executionTime) => {
-    try {
-      const now = new Date();
-      // Check if problem belongs to the active challenge
-      const activeChallenge = await WeeklyChallenge.findOne({
-          startDate: { $lte: now },
-          endDate: { $gte: now },
-          problems: problemId
-      });
-
-      if (activeChallenge) {
-          // Update the user's progress if they have joined
-          const progress = await UserChallengeProgress.findOne({ userId, challengeId: activeChallenge._id });
-          
-          if (progress && !progress.solvedProblems.includes(problemId)) {
-              progress.solvedProblems.push(problemId);
-              progress.score += 10; // each problem is 10 points
-              progress.timeTaken += executionTime;
-              await progress.save();
-          }
-      }
-    } catch (err) {
-      console.error("Failed to increment challenge progress: ", err.message);
-    }
 };

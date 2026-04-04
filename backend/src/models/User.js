@@ -6,6 +6,18 @@ const userSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
+  displayName: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: 80
+  },
+  tagline: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: 160
+  },
   password: {
     type: String,
     required: true
@@ -13,6 +25,23 @@ const userSchema = new mongoose.Schema({
   isPremiumStatus: {
     type: Boolean,
     default: false
+  },
+  tokens: {
+    type: Number,
+    default: 100
+  },
+  favoriteProblemIds: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Problem'
+  }],
+  streak: {
+    count: { type: Number, default: 0 },
+    lastAcceptedDate: { type: Date, default: null }
+  },
+  studyPlanProgress: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: {}
   }
 }, { timestamps: true });
 

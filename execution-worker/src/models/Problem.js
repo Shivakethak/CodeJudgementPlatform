@@ -11,22 +11,36 @@ const problemSchema = new mongoose.Schema({
   description: { type: String, required: true },
   difficulty: { type: String, enum: ['Easy', 'Medium', 'Hard'], default: 'Easy' },
   constraints: { type: [String], default: [] },
+  topics: { type: [String], default: [] },
+  companies: { type: [String], default: [] },
   examples: [{
     input: { type: String },
     output: { type: String },
     explanation: { type: String }
   }],
   testCases: [testCaseSchema],
+  stats: {
+    totalSubmissions: { type: Number, default: 0 },
+    acceptedSubmissions: { type: Number, default: 0 }
+  },
   templates: {
     python: { type: String },
     java: { type: String },
     cpp: { type: String },
     c: { type: String },
-    javascript: { type: String }
+    javascript: { type: String },
+    sql: { type: String }
   },
   isPremium: { type: Boolean, default: false },
   solution: {
-    code: { type: String },
+    code: {
+      python: { type: String },
+      java: { type: String },
+      cpp: { type: String },
+      c: { type: String },
+      javascript: { type: String },
+      sql: { type: String }
+    },
     explanation: { type: String },
     timeComplexity: { type: String },
     spaceComplexity: { type: String }

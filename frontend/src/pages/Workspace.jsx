@@ -1,107 +1,139 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
 import { useAuth } from '../context/AuthContext';
+import api, { authHeaders } from '../services/api';
+import { getSocket } from '../services/socket';
+
+const LANGS = [
+  { id: 'python', label: 'Python 3', monaco: 'python' },
+  { id: 'javascript', label: 'JavaScript', monaco: 'javascript' },
+  { id: 'java', label: 'Java', monaco: 'java' },
+  { id: 'cpp', label: 'C++', monaco: 'cpp' },
+  { id: 'c', label: 'C', monaco: 'c' },
+  { id: 'sql', label: 'SQL', monaco: 'sql' },
+];
+
+const EMPTY_MAP = () => ({
+  python: '',
+  java: '',
+  cpp: '',
+  c: '',
+  javascript: '',
+  sql: ''
+});
+
+function pickSolutionText(problem, lang) {
+  const code = problem?.solution?.code;
+  if (!code || typeof code !== 'object') return '// No editorial for this problem yet.';
+  const raw = code[lang];
+  if (typeof raw === 'string' && raw.trim()) return raw;
+  const fallbackOrder = ['python', 'javascript', 'java', 'cpp', 'c', 'sql'];
+  for (const k of fallbackOrder) {
+    if (typeof code[k] === 'string' && code[k].trim()) {
+      return `// ${lang.toUpperCase()} editorial uses the same approach as ${k}.\n\n${code[k]}`;
+    }
+  }
+  return '// Editorial not available.';
+}
 
 function Workspace() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
+  const contestId = searchParams.get('contest');
+
   const [problem, setProblem] = useState(null);
   const [language, setLanguage] = useState('python');
-  
-  const [codeMap, setCodeMap] = useState({
-    python: '',
-    java: '',
-    cpp: '',
-    c: '',
-    javascript: ''
-  });
-  
+  const [codeMap, setCodeMap] = useState(EMPTY_MAP);
+
   const [output, setOutput] = useState(null);
   const [status, setStatus] = useState('Idle');
-  const [timer, setTimer] = useState(0);
-  const [activeTab, setActiveTab] = useState('testcases');
+  const [bottomTab, setBottomTab] = useState('testcases');
   const [leftTab, setLeftTab] = useState('description');
   const [submissionHistory, setSubmissionHistory] = useState([]);
-  
+  const [detailCaseIdx, setDetailCaseIdx] = useState(null);
+
   const { user } = useAuth();
-  const API_URL = import.meta.env.VITE_API_URL;
-  let pollingInterval = useRef(null);
+  const latestSubmissionId = useRef(null);
 
   useEffect(() => {
     const fetchProblem = async () => {
       try {
-        const res = await axios.get(`${API_URL}/problems/${id}`);
+        const res = await api.get(`/problems/${id}`);
         setProblem(res.data);
-        
-        if (res.data.templates) {
-          setCodeMap(prev => ({
-            ...prev,
-            ...res.data.templates
-          }));
-        }
+        const tmpl = res.data.templates || {};
+        setCodeMap({
+          ...EMPTY_MAP(),
+          ...tmpl
+        });
+        setLeftTab('description');
+        setBottomTab('testcases');
+        setOutput(null);
+        setStatus('Idle');
+        setDetailCaseIdx(null);
+        latestSubmissionId.current = null;
+
+        const pref = ['python', 'javascript', 'java', 'cpp', 'c', 'sql'].find(
+          (l) => tmpl[l] && String(tmpl[l]).trim().length > 0 && !String(tmpl[l]).trim().startsWith('-- N/A')
+        );
+        if (pref) setLanguage(pref);
+        else if ((res.data.topics || []).includes('SQL')) setLanguage('sql');
+        else setLanguage('python');
       } catch (err) {
         console.error(err);
       }
     };
     fetchProblem();
-
-    return () => {
-      if (pollingInterval.current) clearInterval(pollingInterval.current);
-    };
   }, [id]);
 
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTimer(t => t + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, []);
-
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = useCallback(async () => {
     if (!user) return;
     try {
-      const token = user.token;
-      const res = await axios.get(`${API_URL}/submissions/history?problemId=${id}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await api.get(`/submissions/history?problemId=${id}`, {
+        headers: authHeaders(user.token)
       });
       setSubmissionHistory(res.data);
     } catch (err) {
       console.error(err);
     }
-  };
+  }, [user, id]);
 
   useEffect(() => {
-    if (leftTab === 'submissions') {
-      fetchSubmissions();
-    }
-  }, [leftTab]);
+    if (leftTab === 'submissions') fetchSubmissions();
+  }, [leftTab, fetchSubmissions]);
 
   const handleLanguageChange = (e) => {
     setLanguage(e.target.value);
   };
 
   const handleCodeChange = (newVal) => {
-    setCodeMap(prev => ({
+    setCodeMap((prev) => ({
       ...prev,
-      [language]: newVal
+      [language]: newVal ?? ''
     }));
   };
 
-  const code = codeMap[language] || '';
+  const code = codeMap[language] ?? '';
+  const monacoLang = LANGS.find((l) => l.id === language)?.monaco || 'python';
+  const editorialText = problem ? pickSolutionText(problem, language) : '';
+
+  const testResults = output?.testCaseResults;
+  const passedCount = testResults ? testResults.filter((r) => r.passed).length : 0;
+  const totalCases = testResults?.length ?? 0;
+  const passPct = totalCases ? Math.round((passedCount / totalCases) * 100) : 0;
 
   const handleRun = async () => {
     if (!user) return alert('Please login to run code');
-    setStatus('Running...');
+    setStatus('Running…');
     setOutput(null);
     try {
       const token = user.token;
-      const res = await axios.post(`${API_URL}/submissions/run`, {
+      const res = await api.post('/submissions/run', {
         problemId: id,
         code,
         language
       }, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: authHeaders(token)
       });
       setOutput(res.data);
       setStatus(res.data.verdict);
@@ -109,71 +141,84 @@ function Workspace() {
       setOutput(err.response?.data || { error: 'Execution failed' });
       setStatus('Compiler Error');
     }
-    setActiveTab('output');
-  };
-
-  const pollSubmission = async (jobId) => {
-    try {
-      // For optionalAuth token may be null, but we'll try user.token if it exists
-      const token = user ? user.token : null;
-      const res = await axios.get(`${API_URL}/submissions/status/${jobId}`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {}
-      });
-      
-      const { submission } = res.data;
-      if (submission.status === 'Completed') {
-        clearInterval(pollingInterval.current);
-        setOutput(submission);
-        setStatus(submission.verdict);
-      } else {
-        setStatus(submission.status);
-      }
-    } catch (err) {
-      clearInterval(pollingInterval.current);
-      setStatus('Error checking status');
-    }
+    setBottomTab('output');
   };
 
   const handleSubmit = async () => {
     if (!user) return alert('Please login to submit code');
-    setStatus('Pending...');
+    setStatus('Pending…');
     setOutput(null);
     try {
       const token = user.token;
-      const res = await axios.post(`${API_URL}/submissions/submit`, {
+      const res = await api.post('/submissions/submit', {
         problemId: id,
         code,
         language
       }, {
-        headers: { Authorization: `Bearer ${token}` }
+        headers: authHeaders(token)
       });
-      
+
       const jobId = res.data.jobId;
-      pollingInterval.current = setInterval(() => pollSubmission(jobId), 1500);
-      
+      latestSubmissionId.current = jobId;
+      setStatus('Running…');
     } catch (err) {
       console.error('Submit Error:', err.response?.data || err.message);
       setStatus(err.response?.data?.message || err.message || 'Submission Error');
     }
-    setActiveTab('output');
+    setBottomTab('output');
   };
 
-  if (!problem) return <div style={{padding: '2rem'}}>Loading...</div>;
+  useEffect(() => {
+    if (!user?.token) return undefined;
+
+    const socket = getSocket(user.token);
+    const onRunning = ({ submissionId, status: runningStatus }) => {
+      const cur = latestSubmissionId.current?.toString?.() ?? latestSubmissionId.current;
+      const sid = submissionId?.toString?.() ?? submissionId;
+      if (cur && sid === cur) {
+        setStatus(runningStatus || 'Running');
+      }
+    };
+    const onCompleted = ({ submissionId, submission }) => {
+      const cur = latestSubmissionId.current?.toString?.() ?? latestSubmissionId.current;
+      const sid = submissionId?.toString?.() ?? submissionId;
+      if (cur && sid === cur) {
+        setOutput(submission);
+        setStatus(submission.verdict || submission.status);
+        if (leftTab === 'submissions') fetchSubmissions();
+      }
+    };
+
+    socket.on('submission:running', onRunning);
+    socket.on('submission:completed', onCompleted);
+    return () => {
+      socket.off('submission:running', onRunning);
+      socket.off('submission:completed', onCompleted);
+    };
+  }, [user, leftTab, fetchSubmissions]);
+
+  if (!problem) return <div style={{ padding: '2rem' }}>Loading…</div>;
 
   const isPremiumLocked = problem.isPremium && (!user || !user.isPremiumStatus);
 
   return (
     <div className="workspace">
-      
-      {/* LEFT PANE */}
-      <div className="pane" style={{ flex: 1.2 }}>
-        <div className="pane-tabs">
-          <button className={`pane-tab ${leftTab === 'description' ? 'active' : ''}`} onClick={() => setLeftTab('description')}>Description</button>
-          <button className={`pane-tab ${leftTab === 'solution' ? 'active' : ''}`} onClick={() => setLeftTab('solution')}>Solutions</button>
-          <button className={`pane-tab ${leftTab === 'submissions' ? 'active' : ''}`} onClick={() => setLeftTab('submissions')}>Submissions</button>
+      <div className="pane" style={{ flex: 1.12, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+        {contestId && (
+          <div className="lc-banner lc-banner--ok" style={{ marginBottom: '12px', padding: '10px 14px', flexShrink: 0 }}>
+            Contest mode — submissions count toward leaderboard
+            {' '}
+            <Link to={`/challenges/${contestId}`} className="lc-table-link">Back to room</Link>
+          </div>
+        )}
+
+        <div className="pane-tabs" style={{ flexShrink: 0 }}>
+          <button type="button" className={`pane-tab ${leftTab === 'description' ? 'active' : ''}`} onClick={() => setLeftTab('description')}>Description</button>
+          <button type="button" className={`pane-tab ${leftTab === 'submissions' ? 'active' : ''}`} onClick={() => setLeftTab('submissions')}>Submissions</button>
+          <button type="button" className={`pane-tab ${leftTab === 'solutions' ? 'active' : ''}`} onClick={() => setLeftTab('solutions')}>Solution</button>
         </div>
 
-        <div className="pane-content">
+        <div className="pane-content" style={{ overflow: 'auto', flex: 1, minHeight: 0 }}>
           {leftTab === 'description' && (
             <div>
               <h1 className="problem-title">{problem.title}</h1>
@@ -181,12 +226,10 @@ function Workspace() {
                 <span className={`difficulty-${problem.difficulty}`}>{problem.difficulty}</span>
                 {problem.isPremium && <span className="premium-tag" style={{ marginLeft: 0 }}>Premium</span>}
               </div>
-              
               <div className="problem-desc" style={{ whiteSpace: 'pre-wrap' }}>
                 {problem.description}
               </div>
-              
-              <div style={{ marginTop: '30px' }}>
+              <div style={{ marginTop: '24px' }}>
                 {problem.examples?.map((ex, idx) => (
                   <div key={idx} style={{ marginBottom: '20px' }}>
                     <strong>Example {idx + 1}:</strong>
@@ -198,70 +241,41 @@ function Workspace() {
                   </div>
                 ))}
               </div>
-
               <div style={{ marginTop: '20px' }}>
                 <strong>Constraints:</strong>
                 <ul style={{ marginLeft: '20px', marginTop: '10px' }}>
                   {problem.constraints?.map((c, idx) => (
-                    <li key={idx}><code style={{background: 'rgba(255,255,255,0.1)', padding:'2px 6px', borderRadius:'4px'}}>{c}</code></li>
+                    <li key={idx}><code style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px' }}>{c}</code></li>
                   ))}
                 </ul>
               </div>
             </div>
           )}
 
-          {leftTab === 'solution' && (
-            <div className={isPremiumLocked ? 'premium-blur-container' : ''} style={{ height: '100%' }}>
-              <h2>Optimized Approach</h2>
-              
-              {isPremiumLocked && (
-                <div className="premium-blur-overlay">
-                  <span style={{ fontSize: '24px', fontWeight: 'bold', color: 'var(--lc-accent)' }}>Premium Content</span>
-                  <p style={{ marginTop: '10px', color: '#fff' }}>Subscribe to unlock editorials and optimized code solutions.</p>
-                  <button className="btn btn-submit" style={{ marginTop: '20px', background: 'var(--lc-accent)', color: '#000' }}>Subscribe Now</button>
-                </div>
-              )}
-
-              <div style={{ marginTop: '20px', lineHeight: '1.6', filter: isPremiumLocked ? 'blur(4px)' : 'none' }}>
-                <p>{problem.solution?.explanation || "Solution currently unavailable."}</p>
-                
-                <div style={{ marginTop: '20px', marginBottom: '20px', display: 'flex', gap: '20px' }}>
-                  <span><strong>Time Complexity:</strong> <code style={{color: 'var(--lc-accent)'}}>{problem.solution?.timeComplexity}</code></span>
-                  <span><strong>Space Complexity:</strong> <code style={{color: 'var(--lc-accent)'}}>{problem.solution?.spaceComplexity}</code></span>
-                </div>
-
-                <h3>Code Implementation ({language})</h3>
-                <pre style={{ marginTop: '10px', padding: '16px', borderRadius: '8px', overflowX: 'auto', background: 'var(--lc-bg-layer-2)' }}>
-                  {problem.solution?.code?.[language] || problem.solution?.code || "// Solution currently unavailable for this language."}
-                </pre>
-              </div>
-            </div>
-          )}
-
           {leftTab === 'submissions' && (
             <div>
-              <h3>Past Submissions</h3>
+              <h3 style={{ marginBottom: '12px' }}>Your submissions</h3>
               {!user ? (
-                <p style={{marginTop: '20px', color: 'var(--lc-text-secondary)'}}>Please sign in to view your submissions.</p>
+                <p style={{ color: 'var(--lc-text-secondary)' }}>Sign in to view history.</p>
               ) : submissionHistory.length === 0 ? (
-                <p style={{marginTop: '20px', color: 'var(--lc-text-secondary)'}}>No submissions found for this problem.</p>
+                <p style={{ color: 'var(--lc-text-secondary)' }}>No submissions yet.</p>
               ) : (
-                <table className="problemset-table" style={{marginTop: '20px', borderSpacing: 0, width: '100%'}}>
+                <table className="problemset-table" style={{ borderSpacing: 0, width: '100%', fontSize: '13px' }}>
                   <thead>
                     <tr>
-                      <th style={{textAlign: 'left', padding: '8px', borderBottom: '1px solid #333'}}>Time Submitted</th>
-                      <th style={{textAlign: 'left', padding: '8px', borderBottom: '1px solid #333'}}>Status</th>
-                      <th style={{textAlign: 'left', padding: '8px', borderBottom: '1px solid #333'}}>Runtime</th>
-                      <th style={{textAlign: 'left', padding: '8px', borderBottom: '1px solid #333'}}>Language</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Time</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Verdict</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Runtime</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Lang</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {submissionHistory.map(sub => (
+                    {submissionHistory.map((sub) => (
                       <tr key={sub._id}>
-                        <td style={{padding: '8px', borderBottom: '1px solid #333'}}>{new Date(sub.createdAt).toLocaleString()}</td>
-                        <td style={{padding: '8px', borderBottom: '1px solid #333'}} className={`status-${sub.verdict?.split(' ')[0] || 'Pending'}`}>{sub.verdict || sub.status}</td>
-                        <td style={{padding: '8px', borderBottom: '1px solid #333'}}>{sub.executionTime ? sub.executionTime + ' ms' : 'N/A'}</td>
-                        <td style={{padding: '8px', borderBottom: '1px solid #333'}}>{sub.language}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }}>{new Date(sub.createdAt).toLocaleString()}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }} className={`status-${(sub.verdict || sub.status || 'Pending').split(/[\s.]/)[0]}`}>{sub.verdict || sub.status}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }}>{sub.executionTime != null ? `${sub.executionTime} ms` : '—'}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }}>{sub.language}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -269,26 +283,62 @@ function Workspace() {
               )}
             </div>
           )}
+
+          {leftTab === 'solutions' && (
+            <div className={isPremiumLocked ? 'premium-blur-container' : ''} style={{ height: '100%' }}>
+              {isPremiumLocked && (
+                <div className="premium-blur-overlay">
+                  <span style={{ fontSize: '22px', fontWeight: 'bold', color: 'var(--lc-accent)' }}>Premium</span>
+                  <p style={{ marginTop: '10px', color: '#fff' }}>Unlock reference solutions and complexity notes.</p>
+                  <Link to="/store" className="btn btn-submit" style={{ marginTop: '16px', background: 'var(--lc-accent)', color: '#000', display: 'inline-block' }}>View store</Link>
+                </div>
+              )}
+              <div style={{ filter: isPremiumLocked ? 'blur(4px)' : 'none' }}>
+                <p className="lc-muted" style={{ marginBottom: '12px', fontSize: '13px' }}>
+                  Editorial tracks the language selected in the editor (
+                  <strong>{LANGS.find((l) => l.id === language)?.label || language}</strong>
+                  ).
+                </p>
+                <p style={{ lineHeight: 1.55 }}>{problem.solution?.explanation || 'Editorial coming soon.'}</p>
+                <div style={{ marginTop: '14px', display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '13px' }}>
+                  <span><strong>Time:</strong> <code style={{ color: 'var(--lc-accent)' }}>{problem.solution?.timeComplexity || '—'}</code></span>
+                  <span><strong>Space:</strong> <code style={{ color: 'var(--lc-accent)' }}>{problem.solution?.spaceComplexity || '—'}</code></span>
+                </div>
+                <div style={{ marginTop: '16px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--lc-border)', minHeight: '180px' }}>
+                  <Editor
+                    key={`sol-${language}-${id}`}
+                    height="240px"
+                    language={monacoLang}
+                    theme="vs-dark"
+                    value={editorialText}
+                    options={{
+                      readOnly: true,
+                      minimap: { enabled: false },
+                      fontSize: 13,
+                      scrollBeyondLastLine: false,
+                      wordWrap: 'on'
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* RIGHT PANE */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-        
-        {/* Editor Area */}
-        <div className="pane" style={{ flex: 1.5 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: 0 }}>
+        <div className="pane" style={{ flex: 1.5, minHeight: 0 }}>
           <div className="editor-toolbar">
             <select value={language} onChange={handleLanguageChange} className="lc-select">
-              <option value="python">Python3</option>
-              <option value="java">Java</option>
-              <option value="cpp">C++</option>
-              <option value="c">C</option>
-              <option value="javascript">JavaScript</option>
+              {LANGS.map((l) => (
+                <option key={l.id} value={l.id}>{l.label}</option>
+              ))}
             </select>
           </div>
           <Editor
+            key={`ed-${language}-${id}`}
             height="100%"
-            language={language === 'c' || language === 'cpp' ? 'cpp' : language}
+            language={monacoLang}
             theme="vs-dark"
             value={code}
             onChange={handleCodeChange}
@@ -301,73 +351,108 @@ function Workspace() {
           />
           <div className="pane-footer" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', background: 'var(--lc-bg-layer-2)', borderTop: '1px solid var(--lc-border)' }}>
             <span style={{ fontSize: '13px', color: 'var(--lc-text-secondary)', alignSelf: 'center' }}>
-              Status: <span className={`status-${status.split(' ')[0]}`}>{status || 'Idle'}</span>
+              Status: <span className={`status-${(status || 'Idle').split(/[\s.]/)[0]}`}>{status || 'Idle'}</span>
             </span>
             <div style={{ display: 'flex', gap: '8px' }}>
-              <button onClick={handleRun} className="btn btn-primary">Run</button>
-              <button onClick={handleSubmit} className="btn btn-submit">Submit</button>
+              <button type="button" onClick={handleRun} className="btn btn-primary">Run</button>
+              <button type="button" onClick={handleSubmit} className="btn btn-submit">Submit</button>
             </div>
           </div>
         </div>
 
-        {/* Bottom Tabs Panel */}
-        <div className="pane" style={{ flex: 0.8, overflow: 'auto' }}>
+        <div className="pane" style={{ flex: 0.85, overflow: 'hidden', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
           <div className="pane-tabs">
-            <button className={`pane-tab ${activeTab === 'output' ? 'active' : ''}`} onClick={() => setActiveTab('output')}>Output</button>
-            <button className={`pane-tab ${activeTab === 'testcases' ? 'active' : ''}`} onClick={() => setActiveTab('testcases')}>Test Cases</button>
+            <button type="button" className={`pane-tab ${bottomTab === 'output' ? 'active' : ''}`} onClick={() => setBottomTab('output')}>Output</button>
+            <button type="button" className={`pane-tab ${bottomTab === 'testcases' ? 'active' : ''}`} onClick={() => setBottomTab('testcases')}>Test cases</button>
           </div>
-          <div className="pane-content" style={{ background: '#282828' }}>
-            
-            {activeTab === 'testcases' && (
-                <div>
-                    {!output && !status && <div style={{color: 'var(--lc-text-secondary)'}}>Run or submit code to see results. Click on Output to see logs.</div>}
-                    <h3 style={{marginBottom: '10px'}}>Visible Test Cases</h3>
-                    {problem.testCases?.filter(tc => !tc.isHidden).map((tc, idx) => (
-                      <div key={idx} style={{ marginBottom: '16px', background: 'var(--lc-bg-layer-1)', padding: '12px', borderRadius: '8px' }}>
-                        <div><strong>Test Case {idx+1}</strong></div>
-                        <div style={{ marginTop: '10px', fontSize: '13px' }}>
-                          <div><strong>Input:</strong> <pre style={{margin: '4px 0'}}>{tc.input}</pre></div>
-                          <div style={{ marginTop: '8px' }}><strong>Expected Output:</strong> <pre style={{margin: '4px 0'}}>{tc.output}</pre></div>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-            )}
-            
-            {activeTab === 'output' && (
+          <div className="pane-content" style={{ background: 'var(--lc-bg-layer-1)', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            {bottomTab === 'testcases' && (
               <div>
-                {status === 'Running...' || status === 'Pending...' ? (
+                <p className="lc-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
+                  Sample I/O shown here. Submit runs your code against the full hidden suite (typically 24–31 cases per problem).
+                </p>
+                <h3 style={{ marginBottom: '10px', fontSize: '15px' }}>Visible samples</h3>
+                {problem.testCases?.filter((tc) => !tc.isHidden).map((tc, idx) => (
+                  <div key={idx} className="tc-detail" style={{ marginBottom: '12px' }}>
+                    <div style={{ fontWeight: 600, marginBottom: '6px' }}>Sample {idx + 1}</div>
+                    <div><strong>Input</strong><pre>{tc.input}</pre></div>
+                    <div style={{ marginTop: '8px' }}><strong>Expected</strong><pre>{tc.output}</pre></div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {bottomTab === 'output' && (
+              <div className="workspace-output-panel" style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+                {status === 'Running…' || status === 'Pending…' ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                    <div className="spinner"></div> Wait, judging...
+                    <div className="spinner" /> Judging all test cases in the sandbox…
                   </div>
                 ) : output ? (
                   <div>
-                    <h3 className={`status-${status.split(' ')[0]}`} style={{ marginBottom: '16px' }}>{status}</h3>
-                    
-                    {output.executionTime && <div style={{marginBottom: '10px', fontSize: '13px'}}><strong>Runtime:</strong> {output.executionTime} ms</div>}
-                    
-                    {output.error && (
-                      <div className="example-box" style={{ color: 'var(--lc-red)' }}>
-                        {output.error}
-                      </div>
-                    )}
-                    
-                    {output.testCaseResults && output.testCaseResults.map((res, i) => (
-                      <div key={i} style={{ marginBottom: '16px', background: 'var(--lc-bg-layer-1)', padding: '12px', borderRadius: '8px' }}>
-                        <div><strong>Test Case {i+1}</strong>: {res.passed ? <span style={{color: 'var(--lc-green)'}}>Passed</span> : <span style={{color: 'var(--lc-red)'}}>Failed</span>}</div>
-                        
-                        <div style={{ marginTop: '10px', fontSize: '13px' }}>
-                          {res.error && <strong style={{color: 'var(--lc-red)'}}>Error:<br/><pre style={{marginBottom: '8px', color: 'var(--lc-red)'}}>{res.error}</pre></strong>}
-                          <div><strong>Input:</strong> <pre style={{margin: '4px 0'}}>{res.input}</pre></div>
-                          <div style={{ marginTop: '8px' }}><strong>Expected Output:</strong> <pre style={{margin: '4px 0'}}>{res.expectedOutput}</pre></div>
-                          {!res.passed && (
-                            <div style={{ marginTop: '8px' }}><strong>Actual Output:</strong> <pre style={{margin: '4px 0'}}>{res.actualOutput || 'Empty String'}</pre></div>
-                          )}
+                    {totalCases > 0 && (
+                      <div className="workspace-verdict-bar">
+                        <strong className={`status-${(status || '').split(/[\s.]/)[0]}`}>{status}</strong>
+                        <span style={{ fontSize: '13px', color: 'var(--lc-text-secondary)' }}>
+                          {passedCount} / {totalCases} passed ({passPct}%)
+                        </span>
+                        <div className="tc-progress" title={`${passedCount} of ${totalCases}`}>
+                          <div className="tc-progress-fill" style={{ width: `${passPct}%` }} />
                         </div>
                       </div>
-                    ))}
+                    )}
+                    {!totalCases && (
+                      <h3 className={`status-${(status || '').split(/[\s.]/)[0]}`} style={{ marginBottom: '12px' }}>{status}</h3>
+                    )}
+                    {output.executionTime != null && (
+                      <div style={{ marginBottom: '10px', fontSize: '13px' }}><strong>Total runtime (sum of cases):</strong> {output.executionTime} ms</div>
+                    )}
+                    {output.error && (
+                      <div className="example-box" style={{ color: 'var(--lc-red)', marginBottom: '12px' }}>{output.error}</div>
+                    )}
+                    {testResults && testResults.length > 0 && (
+                      <>
+                        <div style={{ fontSize: '12px', color: 'var(--lc-text-secondary)', marginBottom: '6px' }}>Click a case to expand details.</div>
+                        <div className="tc-chip-grid">
+                          {testResults.map((res, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              className={`tc-chip ${res.passed ? 'tc-chip--pass' : 'tc-chip--fail'}`}
+                              onClick={() => setDetailCaseIdx(detailCaseIdx === i ? null : i)}
+                            >
+                              #{i + 1} {res.passed ? '✓' : '✗'}
+                            </button>
+                          ))}
+                        </div>
+                        {detailCaseIdx != null && testResults[detailCaseIdx] && (
+                          <div className="tc-detail">
+                            <div style={{ fontWeight: 600, marginBottom: '8px' }}>
+                              Case {detailCaseIdx + 1}
+                              {' '}
+                              {testResults[detailCaseIdx].passed ? (
+                                <span style={{ color: 'var(--lc-green)' }}>Passed</span>
+                              ) : (
+                                <span style={{ color: 'var(--lc-red)' }}>Failed</span>
+                              )}
+                            </div>
+                            {testResults[detailCaseIdx].error && (
+                              <div style={{ color: 'var(--lc-red)', marginBottom: '8px' }}>
+                                <strong>Error</strong>
+                                <pre>{testResults[detailCaseIdx].error}</pre>
+                              </div>
+                            )}
+                            <div><strong>Input</strong><pre>{testResults[detailCaseIdx].input}</pre></div>
+                            <div style={{ marginTop: '8px' }}><strong>Expected</strong><pre>{testResults[detailCaseIdx].expectedOutput}</pre></div>
+                            {!testResults[detailCaseIdx].passed && (
+                              <div style={{ marginTop: '8px' }}><strong>Your output</strong><pre>{testResults[detailCaseIdx].actualOutput || '—'}</pre></div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
-                ) : <div style={{color: 'var(--lc-text-secondary)'}}>Run or submit code to see results.</div>}
+                ) : <div style={{ color: 'var(--lc-text-secondary)' }}>Run or submit code to see results.</div>}
               </div>
             )}
           </div>

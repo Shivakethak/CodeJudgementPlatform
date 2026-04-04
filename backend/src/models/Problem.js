@@ -19,12 +19,17 @@ const problemSchema = new mongoose.Schema({
     explanation: { type: String }
   }],
   testCases: [testCaseSchema],
+  stats: {
+    totalSubmissions: { type: Number, default: 0 },
+    acceptedSubmissions: { type: Number, default: 0 }
+  },
   templates: {
     python: { type: String },
     java: { type: String },
     cpp: { type: String },
     c: { type: String },
-    javascript: { type: String }
+    javascript: { type: String },
+    sql: { type: String }
   },
   isPremium: { type: Boolean, default: false },
   solution: {
@@ -33,7 +38,8 @@ const problemSchema = new mongoose.Schema({
       java: { type: String },
       cpp: { type: String },
       c: { type: String },
-      javascript: { type: String }
+      javascript: { type: String },
+      sql: { type: String }
     },
     explanation: { type: String },
     timeComplexity: { type: String },

@@ -1,69 +1,104 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { Link, useSearchParams } from 'react-router-dom';
+import api, { authHeaders } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-import RightSidebar from '../components/RightSidebar';
 import { Layers, ListChecks, Hash, Star } from 'lucide-react';
 
 function ProblemList() {
+  const [searchParams] = useSearchParams();
   const [problems, setProblems] = useState([]);
   const [stats, setStats] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalProblems, setTotalProblems] = useState(0);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
-  const [difficultyFilter, setDifficultyFilter] = useState('All');
-  const [topicFilter, setTopicFilter] = useState('All');
-  const [favoriteIds, setFavoriteIds] = useState([]);
+  const [difficultyFilter, setDifficultyFilter] = useState(searchParams.get('difficulty') || 'All');
+  const [topicFilter, setTopicFilter] = useState(searchParams.get('topic') || 'All');
+  const [companyFilter, setCompanyFilter] = useState(searchParams.get('company') || 'All');
+  const [favoriteSet, setFavoriteSet] = useState(() => new Set());
   const { user } = useAuth();
-  
-  const API_URL = import.meta.env.VITE_API_URL;
+
+  useEffect(() => {
+    const d = searchParams.get('difficulty');
+    const t = searchParams.get('topic');
+    const co = searchParams.get('company');
+    if (d) setDifficultyFilter(d);
+    if (t) setTopicFilter(t);
+    if (co) setCompanyFilter(co);
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchProblems = async () => {
       setLoading(true);
       try {
-        const res = await axios.get(`${API_URL}/problems?page=${currentPage}&limit=20&difficulty=${difficultyFilter}&search=${search}&topic=${topicFilter}`);
+        const res = await api.get(
+          `/problems?page=${currentPage}&limit=20&difficulty=${difficultyFilter}&search=${encodeURIComponent(search)}&topic=${topicFilter}&company=${encodeURIComponent(companyFilter)}`
+        );
         setProblems(res.data.problems);
         setTotalPages(res.data.totalPages);
+        setTotalProblems(res.data.totalProblems ?? 0);
       } catch (err) {
         console.error(err);
       } finally {
         setLoading(false);
       }
     };
-    
+
     const delayDebounceFn = setTimeout(() => {
       fetchProblems();
     }, 300);
     return () => clearTimeout(delayDebounceFn);
-  }, [currentPage, difficultyFilter, topicFilter, search]);
+  }, [currentPage, difficultyFilter, topicFilter, companyFilter, search]);
 
   useEffect(() => {
-    const stored = JSON.parse(localStorage.getItem('codejudge_favorites')) || [];
-    setFavoriteIds(stored);
-  }, []);
+    const loadFav = async () => {
+      if (!user?.token) {
+        const stored = JSON.parse(localStorage.getItem('codejudge_favorites') || '[]');
+        setFavoriteSet(new Set(stored));
+        return;
+      }
+      try {
+        const res = await api.get('/users/favorites', { headers: authHeaders(user.token) });
+        const ids = (res.data || []).map((p) => p._id);
+        setFavoriteSet(new Set(ids));
+        localStorage.setItem('codejudge_favorites', JSON.stringify(ids));
+      } catch {
+        const stored = JSON.parse(localStorage.getItem('codejudge_favorites') || '[]');
+        setFavoriteSet(new Set(stored));
+      }
+    };
+    loadFav();
+  }, [user?.token]);
 
-  const toggleFavorite = (id) => {
-    let stored = JSON.parse(localStorage.getItem('codejudge_favorites')) || [];
-    if (stored.includes(id)) {
-      stored = stored.filter(fid => fid !== id);
-    } else {
-      stored.push(id);
+  const toggleFavorite = async (id) => {
+    const next = new Set(favoriteSet);
+    const on = next.has(id);
+    if (on) next.delete(id);
+    else next.add(id);
+    setFavoriteSet(next);
+    const arr = [...next];
+    localStorage.setItem('codejudge_favorites', JSON.stringify(arr));
+
+    if (user?.token) {
+      try {
+        if (on) {
+          await api.delete(`/users/favorites/${id}`, { headers: authHeaders(user.token) });
+        } else {
+          await api.post(`/users/favorites/${id}`, {}, { headers: authHeaders(user.token) });
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
-    localStorage.setItem('codejudge_favorites', JSON.stringify(stored));
-    setFavoriteIds(stored);
   };
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const token = user ? user.token : null;
-        if (token) {
-          const res = await axios.get(`${API_URL}/users/stats`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+        if (user?.token) {
+          const res = await api.get('/users/stats');
           setStats(res.data);
         }
       } catch (err) {
@@ -74,152 +109,197 @@ function ProblemList() {
     if (user) fetchStats();
   }, [user]);
 
+  const solvedSet = stats?.solvedProblemIds
+    ? new Set(stats.solvedProblemIds.map(String))
+    : new Set();
+
   return (
-    <div style={{ display: 'flex', width: '100%', height: '100%' }}>
-      <div className="content-area">
+    <div style={{ display: 'flex', width: '100%', minHeight: '100%' }}>
+      <div className="content-area" style={{ flex: 1, minWidth: 0 }}>
+        <section className="lc-hero">
+          <div className="lc-hero__inner">
+            <div>
+              <p className="lc-hero__eyebrow">CodeJudge</p>
+              <h1 className="lc-hero__title">Prepare for your next technical interview</h1>
+              <p className="lc-hero__sub">
+                Docker-backed execution, multi-language IDE, contests with live leaderboards, and study plans — end to end.
+              </p>
+              <div className="lc-hero__cta">
+                <Link to="/challenges" className="lc-btn lc-btn--accent">Contest hub</Link>
+                <Link to="/mock-interview" className="lc-btn lc-btn--ghost">Mock interview</Link>
+              </div>
+            </div>
+            <div className="lc-hero__card">
+              <div className="lc-hero-stat">
+                <span className="lc-hero-stat__val">{totalProblems || '—'}</span>
+                <span className="lc-hero-stat__label">Problems indexed</span>
+              </div>
+              <div className="lc-hero-stat">
+                <span className="lc-hero-stat__val">Live</span>
+                <span className="lc-hero-stat__label">Redis queue · WebSockets</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="deck-cards">
           <Link to="/challenges" style={{ textDecoration: 'none', display: 'block' }}>
             <div className="topic-card" style={{ background: 'linear-gradient(to right, #ff9900, #ffb84d)' }}>
-              <h3 style={{ color: '#000' }}>JavaScript Challenge</h3>
+              <h3 style={{ color: '#000' }}>JavaScript &amp; polyglot contest</h3>
               <Layers className="card-bg-icon" style={{ color: '#000' }} />
             </div>
           </Link>
           <Link to="/interview" style={{ textDecoration: 'none', display: 'block' }}>
             <div className="topic-card" style={{ background: 'linear-gradient(to right, #2cbb5d, #4ade80)' }}>
-              <h3 style={{ color: '#000' }}>Interview Questions</h3>
+              <h3 style={{ color: '#000' }}>Company interview tracks</h3>
               <ListChecks className="card-bg-icon" style={{ color: '#000' }} />
             </div>
           </Link>
           <Link to="/study" style={{ textDecoration: 'none', display: 'block' }}>
             <div className="topic-card" style={{ background: 'linear-gradient(to right, #007aff, #60a5fa)' }}>
-              <h3 style={{ color: '#000' }}>Crash Course</h3>
+              <h3 style={{ color: '#000' }}>Structured study plans</h3>
               <Hash className="card-bg-icon" style={{ color: '#000' }} />
             </div>
           </Link>
         </div>
 
-        {/* User Dashboard */}
-      {stats && (
-        <div className="stats-dashboard">
-          <div className="stat-item">
-            <span className="stat-label">Solved Problems</span>
-            <span className="stat-value">{stats.stats.totalSolved} / {stats.totals.all}</span>
+        {stats && (
+          <div className="stats-dashboard">
+            <div className="stat-item">
+              <span className="stat-label">Solved</span>
+              <span className="stat-value">{stats.stats.totalSolved} / {stats.totals.all}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label" style={{ color: 'var(--lc-green)' }}>Easy</span>
+              <span className="stat-value">{stats.stats.easy} / {stats.totals.easy}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label" style={{ color: 'var(--lc-yellow)' }}>Medium</span>
+              <span className="stat-value">{stats.stats.medium} / {stats.totals.medium}</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-label" style={{ color: 'var(--lc-red)' }}>Hard</span>
+              <span className="stat-value">{stats.stats.hard} / {stats.totals.hard}</span>
+            </div>
           </div>
-          <div className="stat-item">
-            <span className="stat-label" style={{ color: 'var(--lc-green)' }}>Easy</span>
-            <span className="stat-value">{stats.stats.easy} / {stats.totals.easy}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label" style={{ color: 'var(--lc-yellow)' }}>Medium</span>
-            <span className="stat-value">{stats.stats.medium} / {stats.totals.medium}</span>
-          </div>
-          <div className="stat-item">
-            <span className="stat-label" style={{ color: 'var(--lc-red)' }}>Hard</span>
-            <span className="stat-value">{stats.stats.hard} / {stats.totals.hard}</span>
-          </div>
+        )}
+
+        <h2>Problemset</h2>
+
+        <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
+          <input
+            type="text"
+            placeholder="Search problems…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="lc-select"
+            style={{ flex: '1 1 200px', padding: '8px 12px', border: '1px solid var(--lc-border)' }}
+          />
+          <select
+            value={difficultyFilter}
+            onChange={(e) => setDifficultyFilter(e.target.value)}
+            className="lc-select"
+            style={{ padding: '8px 12px' }}
+          >
+            <option value="All">All difficulties</option>
+            <option value="Easy">Easy</option>
+            <option value="Medium">Medium</option>
+            <option value="Hard">Hard</option>
+          </select>
+          <select
+            value={topicFilter}
+            onChange={(e) => setTopicFilter(e.target.value)}
+            className="lc-select"
+            style={{ padding: '8px 12px' }}
+          >
+            <option value="All">All tags</option>
+            <option value="Array">Array</option>
+            <option value="String">String</option>
+            <option value="Hash Table">Hash Table</option>
+            <option value="Dynamic Programming">Dynamic Programming</option>
+            <option value="SQL">SQL</option>
+            <option value="Graph">Graph</option>
+          </select>
+          <select
+            value={companyFilter}
+            onChange={(e) => setCompanyFilter(e.target.value)}
+            className="lc-select"
+            style={{ padding: '8px 12px' }}
+          >
+            <option value="All">All companies</option>
+            <option value="Google">Google</option>
+            <option value="Amazon">Amazon</option>
+            <option value="Meta">Meta</option>
+            <option value="Microsoft">Microsoft</option>
+            <option value="Apple">Apple</option>
+            <option value="Bloomberg">Bloomberg</option>
+          </select>
         </div>
-      )}
 
-      <h2>Problemset</h2>
-      
-      <div style={{ display: 'flex', gap: '15px', marginBottom: '20px' }}>
-        <input 
-          type="text" 
-          placeholder="Search problems..." 
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="lc-select"
-          style={{ flex: 1, padding: '8px 12px', border: '1px solid var(--lc-border)' }}
-        />
-        <select 
-          value={difficultyFilter} 
-          onChange={(e) => setDifficultyFilter(e.target.value)}
-          className="lc-select"
-          style={{ padding: '8px 12px' }}
-        >
-          <option value="All">All Difficulties</option>
-          <option value="Easy">Easy</option>
-          <option value="Medium">Medium</option>
-          <option value="Hard">Hard</option>
-        </select>
-        <select 
-          value={topicFilter} 
-          onChange={(e) => setTopicFilter(e.target.value)}
-          className="lc-select"
-          style={{ padding: '8px 12px' }}
-        >
-          <option value="All">All Tags</option>
-          <option value="Array">Array</option>
-          <option value="String">String</option>
-          <option value="Dynamic Programming">DP</option>
-          <option value="Graph">Graph</option>
-        </select>
-      </div>
-
-      <div className="panel">
-        <table className="problemset-table" style={{width: '100%', borderCollapse: 'collapse'}}>
-          <thead>
-            <tr>
-              <th style={{ width: '40px' }}>⭐</th>
-              <th style={{ width: '40px' }}>Status</th>
-              <th>Title</th>
-              <th>Difficulty</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr><td colSpan="3" style={{textAlign: 'center', padding: '2rem'}}>Loading...</td></tr>
-            ) : problems.map(p => (
-              <tr key={p._id}>
-                <td>
-                  <Star 
-                    size={16} 
-                    color={favoriteIds.includes(p._id) ? "var(--lc-yellow)" : "var(--lc-text-secondary)"} 
-                    fill={favoriteIds.includes(p._id) ? "var(--lc-yellow)" : "none"}
-                    style={{ cursor: 'pointer' }}
-                    onClick={() => toggleFavorite(p._id)}
-                  />
-                </td>
-                <td>
-                  {stats && stats.stats.totalSolved > 0 ? '-' : ''}
-                </td>
-                <td>
-                  <Link to={`/problem/${p._id}`} style={{ textDecoration: 'none', color: 'var(--lc-text-primary)' }}>
-                    {p.title}
-                  </Link>
-                  {p.isPremium && <span className="premium-tag">Premium</span>}
-                </td>
-                <td className={`difficulty-${p.difficulty}`}>
-                  {p.difficulty}
-                </td>
+        <div className="panel">
+          <table className="problemset-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr>
+                <th style={{ width: '40px' }} aria-label="favorite">⭐</th>
+                <th style={{ width: '48px' }}>#</th>
+                <th style={{ width: '56px' }}>✓</th>
+                <th>Title</th>
+                <th>Difficulty</th>
+                <th style={{ width: '100px' }}>Acceptance</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-        
-        {/* Pagination Controls */}
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px', borderTop: '1px solid var(--lc-border)', gap: '10px' }}>
-          <button 
-            className="btn btn-primary" 
-            disabled={currentPage <= 1} 
-            onClick={() => setCurrentPage(p => p - 1)}
-          >
-            Prev
-          </button>
-          <span style={{ color: 'var(--lc-text-secondary)', fontSize: '13px' }}>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button 
-            className="btn btn-primary" 
-            disabled={currentPage >= totalPages} 
-            onClick={() => setCurrentPage(p => p + 1)}
-          >
-            Next
-          </button>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem' }}>Loading…</td></tr>
+              ) : problems.map(p => (
+                <tr key={p._id}>
+                  <td>
+                    <Star
+                      size={16}
+                      color={favoriteSet.has(p._id) ? 'var(--lc-yellow)' : 'var(--lc-text-secondary)'}
+                      fill={favoriteSet.has(p._id) ? 'var(--lc-yellow)' : 'none'}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => toggleFavorite(p._id)}
+                    />
+                  </td>
+                  <td className="lc-muted">{p.index ?? '—'}</td>
+                  <td className="lc-muted">{solvedSet.has(String(p._id)) ? '✓' : ''}</td>
+                  <td>
+                    <Link to={`/problem/${p._id}`} style={{ textDecoration: 'none', color: 'var(--lc-text-primary)' }}>
+                      {p.title}
+                    </Link>
+                    {p.isPremium && <span className="premium-tag">Premium</span>}
+                  </td>
+                  <td className={`difficulty-${p.difficulty}`}>
+                    {p.difficulty}
+                  </td>
+                  <td className="lc-muted">{p.acceptanceRate != null ? `${p.acceptanceRate}%` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', padding: '16px', borderTop: '1px solid var(--lc-border)', gap: '10px' }}>
+            <button
+              className="btn btn-primary"
+              disabled={currentPage <= 1}
+              onClick={() => setCurrentPage(p => p - 1)}
+            >
+              Prev
+            </button>
+            <span style={{ color: 'var(--lc-text-secondary)', fontSize: '13px' }}>
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              className="btn btn-primary"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(p => p + 1)}
+            >
+              Next
+            </button>
+          </div>
         </div>
       </div>
-      </div>
-      <RightSidebar />
     </div>
   );
 }

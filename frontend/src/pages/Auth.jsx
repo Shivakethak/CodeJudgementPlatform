@@ -1,6 +1,7 @@
 import React, { useState, useContext } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { AuthContext } from '../context/AuthContext';
+import { Code2 } from 'lucide-react';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -10,6 +11,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const { login, register } = useContext(AuthContext);
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const reason = params.get('reason');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -30,48 +33,78 @@ const Auth = () => {
   };
 
   return (
-    <div className="container">
-      <div className="glass-panel auth-card">
-        <h2 style={{ textAlign: 'center', marginBottom: '2rem' }}>{isLogin ? 'Sign In' : 'Create Account'}</h2>
-        
-        {error && (
-          <div style={{ background: 'rgba(239,68,68,0.2)', padding: '1rem', borderRadius: '6px', marginBottom: '1rem', borderLeft: '4px solid var(--danger)' }}>
-            {error}
+    <div className="lc-auth-page">
+      <div className="lc-auth-panel lc-auth-panel--aside">
+        <div className="lc-auth-aside-inner">
+          <div className="lc-brand lc-brand--large">
+            <span className="lc-brand-icon"><Code2 size={28} /></span>
+            <span className="lc-brand-name">CodeJudge</span>
           </div>
-        )}
+          <h2 className="lc-auth-headline">Level up with a real judge</h2>
+          <p className="lc-auth-copy">
+            Docker-isolated runs, BullMQ queues, Socket.IO leaderboards, and a UI inspired by the platforms you already know.
+          </p>
+          <ul className="lc-auth-bullets">
+            <li>Multi-language submissions</li>
+            <li>Weekly contests &amp; live rankings</li>
+            <li>Production-minded API &amp; worker split</li>
+          </ul>
+        </div>
+      </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>Email Address</label>
-            <input 
-              type="email" 
-              required 
-              value={email} 
-              onChange={(e) => setEmail(e.target.value)} 
-            />
-          </div>
-          <div className="form-group">
-            <label>Password</label>
-            <input 
-              type="password" 
-              required 
-              value={password} 
-              onChange={(e) => setPassword(e.target.value)} 
-            />
-          </div>
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={loading}>
-            {loading ? <div className="spinner"></div> : (isLogin ? 'Sign In' : 'Sign Up')}
-          </button>
-        </form>
+      <div className="lc-auth-panel lc-auth-panel--form">
+        <div className="lc-auth-form-card">
+          {reason === 'session' && (
+            <div className="lc-banner lc-banner--warn">
+              Your session expired. Please sign in again.
+            </div>
+          )}
+          <h1 className="lc-auth-title">{isLogin ? 'Welcome back' : 'Create account'}</h1>
+          <p className="lc-muted lc-auth-sub">
+            {isLogin ? 'Sign in to register for contests and sync submissions.' : 'Join thousands of practice sessions (demo).'}
+          </p>
 
-        <div style={{ textAlign: 'center', marginTop: '1.5rem', color: 'var(--text-secondary)' }}>
-          {isLogin ? "Don't have an account? " : "Already have an account? "}
-          <span 
-            style={{ color: 'var(--accent)', cursor: 'pointer', fontWeight: '500' }}
-            onClick={() => setIsLogin(!isLogin)}
-          >
-            {isLogin ? 'Sign Up' : 'Sign In'}
-          </span>
+          {error && (
+            <div className="lc-banner lc-banner--error" role="alert">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="lc-auth-form">
+            <label className="lc-label">Email</label>
+            <input
+              type="email"
+              required
+              className="lc-input"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <label className="lc-label">Password</label>
+            <input
+              type="password"
+              required
+              className="lc-input"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete={isLogin ? 'current-password' : 'new-password'}
+            />
+            <button type="submit" className="lc-btn lc-btn--accent lc-btn--block" disabled={loading}>
+              {loading ? <span className="spinner" /> : isLogin ? 'Sign in' : 'Sign up'}
+            </button>
+          </form>
+
+          <p className="lc-auth-switch">
+            {isLogin ? "Don't have an account? " : 'Already have an account? '}
+            <button
+              type="button"
+              className="lc-link-btn"
+              onClick={() => { setIsLogin(!isLogin); setError(''); }}
+            >
+              {isLogin ? 'Sign up' : 'Sign in'}
+            </button>
+          </p>
+          <Link to="/" className="lc-auth-back">← Back to problems</Link>
         </div>
       </div>
     </div>

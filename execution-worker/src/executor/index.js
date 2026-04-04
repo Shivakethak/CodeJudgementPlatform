@@ -1,4 +1,5 @@
 const { exec } = require('child_process');
+const { spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -26,7 +27,89 @@ const execPromise = (cmd, timeoutMs) => {
   });
 };
 
+const sanitizeOutput = (str) => {
+  if (!str) return '';
+  return str.split('\n')
+    .map(line => line.trim())
+    .filter(line => line.length > 0)
+    .join('\n');
+};
+
+const runSql = (code, testCases) => {
+  const jobId = uuidv4();
+  const jobDir = path.join(TEMP_DIR, jobId);
+  fs.mkdirSync(jobDir, { recursive: true });
+  let results = [];
+  let maxExecutionTime = 0;
+  let overallVerdict = 'Accepted';
+
+  try {
+    for (let i = 0; i < testCases.length; i++) {
+      const tc = testCases[i];
+      const scriptPath = path.join(jobDir, `run_${i}.sql`);
+      const fullScript = `${(tc.input || '').trim()}\n${(code || '').trim()}\n`;
+      fs.writeFileSync(scriptPath, fullScript, 'utf8');
+      const readArg = `.read ${scriptPath.split(path.sep).join('/')}`;
+
+      const start = Date.now();
+      const r = spawnSync('sqlite3', [':memory:', readArg], {
+        encoding: 'utf8',
+        maxBuffer: 1024 * 1024,
+        timeout: 15000,
+      });
+      const execTime = Date.now() - start;
+      maxExecutionTime = Math.max(maxExecutionTime, execTime);
+
+      const failed = r.error || (typeof r.status === 'number' && r.status !== 0);
+      if (failed) {
+        overallVerdict = 'Runtime Error';
+        results.push({
+          passed: false,
+          input: tc.input,
+          expectedOutput: tc.output,
+          actualOutput: (r.stdout || '').substring(0, 1000),
+          error: ((r.stderr || r.error?.message || 'SQL error') + '').substring(0, 1000),
+        });
+        break;
+      }
+
+      const stdout = r.stdout || '';
+      const cleanExpected = sanitizeOutput(tc.output);
+      const cleanActual = sanitizeOutput(stdout);
+      let tcVerdict = 'Accepted';
+      if (cleanExpected !== cleanActual) {
+        tcVerdict = 'Wrong Answer';
+        if (overallVerdict === 'Accepted') overallVerdict = 'Wrong Answer';
+      }
+
+      results.push({
+        passed: tcVerdict === 'Accepted',
+        input: tc.input,
+        expectedOutput: tc.output,
+        actualOutput: stdout.substring(0, 1000),
+        error: null
+      });
+
+      if (tcVerdict !== 'Accepted') break;
+    }
+  } finally {
+    try {
+      fs.rmSync(jobDir, { recursive: true, force: true });
+    } catch (e) {}
+  }
+
+  return {
+    verdict: overallVerdict,
+    executionTime: maxExecutionTime,
+    testCaseResults: results
+  };
+};
+
 const executeCode = async (language, code, testCases) => {
+  if (language === 'sql') {
+    return runSql(code, testCases);
+  }
+
   const jobId = uuidv4();
   const jobDir = path.join(TEMP_DIR, jobId);
   fs.mkdirSync(jobDir, { recursive: true });
@@ -74,22 +157,19 @@ const executeCode = async (language, code, testCases) => {
   let maxExecutionTime = 0;
   let overallVerdict = 'Accepted';
 
-  // Create isolated container
   const { stdout: containerIdStr, error: startErr } = await execPromise(
     `docker run -d --rm --network=none --memory=128m --cpus=0.5 -w /app ${image} sleep 3600`, 10000
   );
-  
+
   if (startErr) {
     return { verdict: 'System Error', executionTime: 0, testCaseResults: [], error: 'Failed to start sandbox' };
   }
   const containerId = containerIdStr.trim();
 
   try {
-    // Copy all files into container
     const { error: cpErr } = await execPromise(`docker cp "${jobDir}/." ${containerId}:/app/`, 10000);
     if (cpErr) throw new Error('File transfer failed');
 
-    // Inside container compilation
     if (compileCmd) {
       const compileResult = await execPromise(
         `docker exec -w /app ${containerId} sh -c "${compileCmd}"`, 10000
@@ -105,13 +185,12 @@ const executeCode = async (language, code, testCases) => {
       const tc = testCases[i];
       const tcInputFile = path.join(jobDir, `input_${i}.txt`);
       fs.writeFileSync(tcInputFile, tc.input);
-      // copy single input file (though we copied the whole folder earlier, we just wrote this file)
       await execPromise(`docker cp "${tcInputFile}" ${containerId}:/app/`, 5000);
 
       const start = Date.now();
-      
+
       const cCmd = `docker exec -w /app ${containerId} sh -c "${runCmd} < input_${i}.txt"`;
-      
+
       const { error, stdout, stderr } = await execPromise(cCmd, 15000);
 
       const execTime = Date.now() - start;
@@ -129,14 +208,6 @@ const executeCode = async (language, code, testCases) => {
         tcError = stderr || (error ? error.message : '');
         if (overallVerdict === 'Accepted') overallVerdict = 'Runtime Error';
       } else {
-        const sanitizeOutput = (str) => {
-          if (!str) return '';
-          return str.split('\n')
-                    .map(line => line.trim())
-                    .filter(line => line.length > 0)
-                    .join('\n');
-        };
-
         const cleanExpected = sanitizeOutput(tc.output);
         const cleanActual = sanitizeOutput(stdout);
 
@@ -150,16 +221,15 @@ const executeCode = async (language, code, testCases) => {
         passed: tcVerdict === 'Accepted',
         input: tc.input,
         expectedOutput: tc.output,
-        actualOutput: stdout.substring(0, 1000), 
+        actualOutput: stdout.substring(0, 1000),
         error: tcError ? tcError.substring(0, 1000) : null
       });
 
       if (tcVerdict !== 'Accepted') {
-        break; // Stop at first failed test case
+        break;
       }
     }
   } finally {
-    // Cleanup container and local temp dir
     await execPromise(`docker kill ${containerId}`, 5000);
     try {
       fs.rmSync(jobDir, { recursive: true, force: true });
