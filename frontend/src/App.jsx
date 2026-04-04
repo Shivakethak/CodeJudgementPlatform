@@ -1,5 +1,5 @@
 import React, { Suspense, lazy, memo } from 'react';
-import { BrowserRouter as Router, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 
 import TopNavbar from './components/TopNavbar';
@@ -25,20 +25,25 @@ const MemoTopNavbar = memo(TopNavbar);
 const MemoNavSidebar = memo(NavSidebar);
 const MemoRightSidebar = memo(RightSidebar);
 
-const AppShell = memo(() => (
-  <div className="app-container">
-    <MemoTopNavbar />
-    <div className="main-layout">
-      <MemoNavSidebar />
-      <div className="lc-main-scroll lc-main-with-panels">
-        <Suspense fallback={<div className="lc-page lc-page--center lc-muted">Loading…</div>}>
-          <Outlet />
-        </Suspense>
+const AppShell = memo(function AppShell() {
+  const { pathname } = useLocation();
+  const problemWorkspace = pathname.startsWith('/problem/');
+
+  return (
+    <div className="app-container">
+      <MemoTopNavbar />
+      <div className={`main-layout${problemWorkspace ? ' main-layout--problem-ide' : ''}`}>
+        {!problemWorkspace && <MemoNavSidebar />}
+        <div className={`lc-main-scroll lc-main-with-panels${problemWorkspace ? ' lc-main--problem-ide' : ''}`}>
+          <Suspense fallback={<div className="lc-page lc-page--center lc-muted">Loading…</div>}>
+            <Outlet />
+          </Suspense>
+        </div>
+        {!problemWorkspace && <MemoRightSidebar />}
       </div>
-      <MemoRightSidebar />
     </div>
-  </div>
-));
+  );
+});
 
 const LoginLayout = memo(() => (
   <div className="app-container">

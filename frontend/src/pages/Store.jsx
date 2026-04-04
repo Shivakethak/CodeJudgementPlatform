@@ -25,7 +25,7 @@ const Store = () => {
         )}
       </div>
 
-      <div style={{ textAlign: 'center', padding: '40px', background: 'linear-gradient(135deg, rgba(255,161,22,0.12), rgba(0,0,0,0.4))', borderRadius: '12px', marginBottom: '30px', border: '1px solid var(--lc-border)' }}>
+      <div className="term-highlight-card" style={{ textAlign: 'center', padding: '40px', marginBottom: '30px' }}>
         <h2 style={{ color: 'var(--lc-accent)', fontSize: '28px', marginBottom: '10px' }}>Premium</h2>
         <p style={{ color: 'var(--lc-text-secondary)', marginBottom: '20px' }}>Unlock premium-only problems, editorials, and extended contests.</p>
         <button type="button" className="btn btn-primary" style={{ padding: '10px 30px', fontSize: '16px' }} onClick={() => redeem('Premium upgrade')}>

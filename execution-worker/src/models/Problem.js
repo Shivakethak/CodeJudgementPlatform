@@ -18,6 +18,7 @@ const problemSchema = new mongoose.Schema({
     output: { type: String },
     explanation: { type: String }
   }],
+  hints: { type: [String], default: [] },
   testCases: [testCaseSchema],
   stats: {
     totalSubmissions: { type: Number, default: 0 },

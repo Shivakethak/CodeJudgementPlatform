@@ -5,8 +5,10 @@ import { useAuth } from '../context/AuthContext';
 
 import { Layers, ListChecks, Hash, Star } from 'lucide-react';
 
+const DIFFICULTY_OPTIONS = ['All', 'Easy', 'Medium', 'Hard'];
+
 function ProblemList() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [problems, setProblems] = useState([]);
   const [stats, setStats] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -24,7 +26,8 @@ function ProblemList() {
     const d = searchParams.get('difficulty');
     const t = searchParams.get('topic');
     const co = searchParams.get('company');
-    if (d) setDifficultyFilter(d);
+    if (d && DIFFICULTY_OPTIONS.includes(d)) setDifficultyFilter(d);
+    else if (!d) setDifficultyFilter('All');
     if (t) setTopicFilter(t);
     if (co) setCompanyFilter(co);
   }, [searchParams]);
@@ -71,6 +74,17 @@ function ProblemList() {
     };
     loadFav();
   }, [user?.token]);
+
+  const setDifficulty = (value) => {
+    setDifficultyFilter(value);
+    setCurrentPage(1);
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value === 'All') next.delete('difficulty');
+      else next.set('difficulty', value);
+      return next;
+    }, { replace: true });
+  };
 
   const toggleFavorite = async (id) => {
     const next = new Set(favoriteSet);
@@ -119,11 +133,8 @@ function ProblemList() {
         <section className="lc-hero">
           <div className="lc-hero__inner">
             <div>
-              <p className="lc-hero__eyebrow">CodeJudge</p>
+              <p className="lc-hero__eyebrow">AlgoArena</p>
               <h1 className="lc-hero__title">Prepare for your next technical interview</h1>
-              <p className="lc-hero__sub">
-                Docker-backed execution, multi-language IDE, contests with live leaderboards, and study plans — end to end.
-              </p>
               <div className="lc-hero__cta">
                 <Link to="/challenges" className="lc-btn lc-btn--accent">Contest hub</Link>
                 <Link to="/mock-interview" className="lc-btn lc-btn--ghost">Mock interview</Link>
@@ -144,21 +155,21 @@ function ProblemList() {
 
         <div className="deck-cards">
           <Link to="/challenges" style={{ textDecoration: 'none', display: 'block' }}>
-            <div className="topic-card" style={{ background: 'linear-gradient(to right, #ff9900, #ffb84d)' }}>
-              <h3 style={{ color: '#000' }}>JavaScript &amp; polyglot contest</h3>
-              <Layers className="card-bg-icon" style={{ color: '#000' }} />
+            <div className="topic-card term-topic-card--accent">
+              <h3>Contest</h3>
+              <Layers className="card-bg-icon" style={{ color: 'var(--term-accent)', opacity: 0.35 }} />
             </div>
           </Link>
           <Link to="/interview" style={{ textDecoration: 'none', display: 'block' }}>
-            <div className="topic-card" style={{ background: 'linear-gradient(to right, #2cbb5d, #4ade80)' }}>
-              <h3 style={{ color: '#000' }}>Company interview tracks</h3>
-              <ListChecks className="card-bg-icon" style={{ color: '#000' }} />
+            <div className="topic-card term-topic-card--green">
+              <h3>Company interview tracks</h3>
+              <ListChecks className="card-bg-icon" style={{ color: 'var(--lc-green)', opacity: 0.35 }} />
             </div>
           </Link>
           <Link to="/study" style={{ textDecoration: 'none', display: 'block' }}>
-            <div className="topic-card" style={{ background: 'linear-gradient(to right, #007aff, #60a5fa)' }}>
-              <h3 style={{ color: '#000' }}>Structured study plans</h3>
-              <Hash className="card-bg-icon" style={{ color: '#000' }} />
+            <div className="topic-card term-topic-card--blue">
+              <h3>Structured study plans</h3>
+              <Hash className="card-bg-icon" style={{ color: 'var(--lc-blue)', opacity: 0.35 }} />
             </div>
           </Link>
         </div>
@@ -186,26 +197,28 @@ function ProblemList() {
 
         <h2>Problemset</h2>
 
-        <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        <div className="problem-filters-row">
           <input
             type="text"
             placeholder="Search problems…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="lc-select"
-            style={{ flex: '1 1 200px', padding: '8px 12px', border: '1px solid var(--lc-border)' }}
+            className="lc-select problem-filters-search"
           />
-          <select
-            value={difficultyFilter}
-            onChange={(e) => setDifficultyFilter(e.target.value)}
-            className="lc-select"
-            style={{ padding: '8px 12px' }}
-          >
-            <option value="All">All difficulties</option>
-            <option value="Easy">Easy</option>
-            <option value="Medium">Medium</option>
-            <option value="Hard">Hard</option>
-          </select>
+          <div className="difficulty-bubbles" role="group" aria-label="Filter by difficulty">
+            {DIFFICULTY_OPTIONS.map((d) => (
+              <button
+                key={d}
+                type="button"
+                className={`difficulty-bubble difficulty-bubble--${d.toLowerCase()}${difficultyFilter === d ? ' difficulty-bubble--active' : ''}`}
+                onClick={() => setDifficulty(d)}
+                aria-pressed={difficultyFilter === d}
+              >
+                <span className="difficulty-bubble__glow" aria-hidden />
+                <span className="difficulty-bubble__label">{d === 'All' ? 'All problems' : d}</span>
+              </button>
+            ))}
+          </div>
           <select
             value={topicFilter}
             onChange={(e) => setTopicFilter(e.target.value)}
@@ -256,8 +269,8 @@ function ProblemList() {
                   <td>
                     <Star
                       size={16}
-                      color={favoriteSet.has(p._id) ? 'var(--lc-yellow)' : 'var(--lc-text-secondary)'}
-                      fill={favoriteSet.has(p._id) ? 'var(--lc-yellow)' : 'none'}
+                      color={favoriteSet.has(p._id) ? 'var(--term-accent)' : 'var(--term-text-muted)'}
+                      fill={favoriteSet.has(p._id) ? 'var(--term-accent)' : 'none'}
                       style={{ cursor: 'pointer' }}
                       onClick={() => toggleFavorite(p._id)}
                     />
@@ -265,7 +278,7 @@ function ProblemList() {
                   <td className="lc-muted">{p.index ?? '—'}</td>
                   <td className="lc-muted">{solvedSet.has(String(p._id)) ? '✓' : ''}</td>
                   <td>
-                    <Link to={`/problem/${p._id}`} style={{ textDecoration: 'none', color: 'var(--lc-text-primary)' }}>
+                    <Link to={`/problem/${p._id}`} className="problem-title-link">
                       {p.title}
                     </Link>
                     {p.isPremium && <span className="premium-tag">Premium</span>}

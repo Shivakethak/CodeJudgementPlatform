@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Problem = require('../models/Problem');
 const StudyPlan = require('../models/StudyPlan');
 const DiscussPost = require('../models/DiscussPost');
-const { generateBulkClones, generateSqlBank, CANONICALS } = require('./canonicalBulk');
+const { generateBulkClones, generateSqlBank, CANONICALS, ensureExamplesAndHints } = require('./canonicalBulk');
 const { buildPalindromeCases } = require('./testCaseGenerators');
 
 const BATCH = 250;
@@ -414,6 +414,7 @@ INSERT INTO students VALUES (2, 'Amy', 89);`,
 
     fixPalindromeJsTemplate(problemsList[1]);
     fixLongestJavaTemplate(problemsList[2]);
+    problemsList.forEach(ensureExamplesAndHints);
 
     console.log('Inserting hero problems…');
     const heroInserted = await insertInBatches(problemsList);
@@ -441,40 +442,109 @@ INSERT INTO students VALUES (2, 'Amy', 89);`,
     const sql50 = sqlInserted.map((p) => p._id);
 
     const now = new Date();
-    const startDate = new Date(now);
-    startDate.setDate(now.getDate() - 1);
-    const endDate = new Date(now);
-    endDate.setDate(now.getDate() + 7);
+    const day = (delta) => {
+      const d = new Date(now);
+      d.setDate(d.getDate() + delta);
+      d.setHours(12, 0, 0, 0);
+      return d;
+    };
 
-    const challengeProblems = algorithmPool.slice(0, 4).map((p) => p._id);
+    const pid = (from, to) => algorithmPool.slice(from, to).map((p) => p._id);
 
-    await WeeklyChallenge.create({
-      title: 'Weekly Master Challenge #1',
-      description:
-        'Solve all contest problems. +1 per solve, −1 score per wrong attempt before you solve that problem.',
-      slug: 'weekly-master-1',
-      kind: 'weekly',
-      startDate,
-      endDate,
-      problems: challengeProblems,
-      penaltyPerWrong: 1
-    });
-
-    const futureStart = new Date(now);
-    futureStart.setDate(now.getDate() + 10);
-    const futureEnd = new Date(futureStart);
-    futureEnd.setDate(futureStart.getDate() + 4);
-
-    await WeeklyChallenge.create({
-      title: 'Grand Sprint Contest',
-      description: 'Four-day window. Same scoring: solved count minus penalties.',
-      slug: 'grand-sprint',
-      kind: 'contest',
-      startDate: futureStart,
-      endDate: futureEnd,
-      problems: algorithmPool.slice(0, 3).map((p) => p._id),
-      penaltyPerWrong: 1
-    });
+    const contestRows = await WeeklyChallenge.insertMany([
+      {
+        title: 'Weekly Master Challenge #1',
+        description:
+          'Solve all contest problems. +1 per solve, −1 score per wrong attempt before you solve that problem.',
+        slug: 'weekly-master-1',
+        kind: 'weekly',
+        startDate: day(-1),
+        endDate: day(7),
+        problems: pid(0, 4),
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'Contest',
+        description:
+          'Multi-language round: Python, JavaScript, Java, C++, C, or SQL. +1 per solve; penalty per wrong attempt until you solve that problem.',
+        slug: 'contest',
+        kind: 'contest',
+        startDate: day(-2),
+        endDate: day(8),
+        problems: pid(0, 6),
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'Data Structures Cup',
+        description: 'Arrays, stacks, and hashes — six problems, live leaderboard.',
+        slug: 'data-structures-cup',
+        kind: 'contest',
+        startDate: day(-3),
+        endDate: day(5),
+        problems: pid(4, 10),
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'String & Hash Sprint',
+        description: 'One-week window with overlapping string and hash-table style tasks.',
+        slug: 'string-hash-sprint',
+        kind: 'weekly',
+        startDate: day(1),
+        endDate: day(10),
+        problems: pid(10, 17),
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'Binary Search Bonanza',
+        description: 'Short mid-week sprint focused on search boundaries and monotonicity.',
+        slug: 'binary-search-bonanza',
+        kind: 'contest',
+        startDate: day(4),
+        endDate: day(7),
+        problems: pid(25, 31),
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'Graph & Tree Special',
+        description: 'Seven problems from the catalog with graph and tree tags in rotation.',
+        slug: 'graph-tree-special',
+        kind: 'contest',
+        startDate: day(9),
+        endDate: day(14),
+        problems: pid(40, 47),
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'SQL Showdown',
+        description: 'Mix of algorithm and SQLite drills — outputs must match exactly.',
+        slug: 'sql-showdown',
+        kind: 'contest',
+        startDate: day(-1),
+        endDate: day(12),
+        problems: [...pid(7, 9), ...sqlInserted.slice(0, 5).map((p) => p._id)],
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'Grand Sprint Contest',
+        description: 'Four-day window. Same scoring: solved count minus penalties.',
+        slug: 'grand-sprint',
+        kind: 'contest',
+        startDate: day(10),
+        endDate: day(14),
+        problems: pid(0, 3),
+        penaltyPerWrong: 1
+      },
+      {
+        title: 'Archive: Winter Warmup (ended)',
+        description: 'Past event kept for history — registration closed.',
+        slug: 'archive-winter-warmup',
+        kind: 'weekly',
+        startDate: day(-52),
+        endDate: day(-48),
+        problems: pid(200, 206),
+        penaltyPerWrong: 1
+      }
+    ]);
 
     await StudyPlan.insertMany([
       {
@@ -526,7 +596,7 @@ INSERT INTO students VALUES (2, 'Amy', 89);`,
     ]);
 
     console.log(
-      `Study plans: Top 150 (${top150.length}), LC 75 (${lc75.length}), SQL 50 (${sql50.length}). Total problems: ${allInserted.length}.`
+      `Study plans: Top 150 (${top150.length}), LC 75 (${lc75.length}), SQL 50 (${sql50.length}). Total problems: ${allInserted.length}. Contests: ${contestRows.length}.`
     );
   } catch (error) {
     console.error(`Error seeding problems: ${error.message}`);

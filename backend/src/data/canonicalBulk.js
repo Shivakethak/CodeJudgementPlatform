@@ -23,8 +23,23 @@ const TWO_SUM = {
     {
       input: 'nums = [2,7,11,15], target = 9',
       output: '[0, 1]',
-      explanation: 'nums[0] + nums[1] == 9'
+      explanation: 'Because nums[0] + nums[1] == 9, return [0, 1].'
+    },
+    {
+      input: 'nums = [3,2,4], target = 6',
+      output: '[1, 2]',
+      explanation: 'nums[1] + nums[2] == 6.'
+    },
+    {
+      input: 'nums = [3,3], target = 6',
+      output: '[0, 1]',
+      explanation: 'Two different indices can hold the same value.'
     }
+  ],
+  hints: [
+    'Use a hash map from value → index while scanning the array once.',
+    'For each nums[i], check whether target - nums[i] was seen earlier.',
+    'You cannot use the same element twice; indices must differ.'
   ],
   testCases: buildTwoSumCases(28),
   templates: {
@@ -228,8 +243,14 @@ const FIB = {
   companies: ['Microsoft', 'Apple'],
   constraints: ['0 <= n <= 30'],
   examples: [
-    { input: '2', output: '1', explanation: 'F(2)=1' },
-    { input: '3', output: '2', explanation: 'F(3)=2' }
+    { input: '2', output: '1', explanation: 'F(2) = 1.' },
+    { input: '3', output: '2', explanation: 'F(3) = 2.' },
+    { input: '4', output: '3', explanation: 'F(4) = F(3) + F(2) = 2 + 1 = 3.' }
+  ],
+  hints: [
+    'Base cases: F(0)=0 and F(1)=1.',
+    'Use an iterative O(n) loop with two variables instead of deep recursion.',
+    'For larger n, matrix exponentiation helps — not required for n ≤ 30.'
   ],
   testCases: buildFibCases(),
   templates: {
@@ -396,6 +417,7 @@ function buildClone(index) {
   p.topics = [...new Set([...(base.topics || []), EXTRA_TOPICS[index % EXTRA_TOPICS.length]])];
   p.companies = [COMPANIES[index % COMPANIES.length], COMPANIES[(index + 3) % COMPANIES.length]];
   p.isPremium = index % 18 === 0;
+  ensureExamplesAndHints(p);
   return p;
 }
 
@@ -433,7 +455,7 @@ const SQL_VARIANTS = [
 function buildSqlProblem(i) {
   const variant = SQL_VARIANTS[i % SQL_VARIANTS.length];
   const band = Math.floor(i / SQL_VARIANTS.length) + 1;
-  return {
+  const doc = {
     title: `${variant.titlePrefix} · band ${band}`,
     description: variant.blurb,
     difficulty: 'Easy',
@@ -462,6 +484,92 @@ function buildSqlProblem(i) {
       spaceComplexity: 'O(1)'
     }
   };
+  ensureExamplesAndHints(doc);
+  return doc;
+}
+
+function pushExampleFromTest(examples, t, note) {
+  const inp = String(t.input ?? '').trim();
+  const out = String(t.output ?? '').trim();
+  if (!inp && !out) return false;
+  const dup = examples.some((e) => String(e.input) === inp && String(e.output) === out);
+  if (dup) return false;
+  examples.push({
+    input: inp.length > 500 ? `${inp.slice(0, 497)}…` : inp,
+    output: out.length > 500 ? `${out.slice(0, 497)}…` : out,
+    explanation: note
+  });
+  return true;
+}
+
+/**
+ * Ensures 2–3 examples and up to 3 hints for every problem (seed + clones).
+ */
+function ensureExamplesAndHints(p) {
+  const maxEx = 3;
+  const examples = [...(p.examples || [])];
+  const visible = (p.testCases || []).filter((t) => t && !t.isHidden);
+  const allCases = p.testCases || [];
+
+  let vi = 0;
+  while (examples.length < maxEx && vi < visible.length) {
+    pushExampleFromTest(examples, visible[vi++], 'Sample from the judge’s visible tests.');
+  }
+
+  let ai = 0;
+  while (examples.length < maxEx && ai < allCases.length) {
+    pushExampleFromTest(examples, allCases[ai++], 'Additional sample I/O from the judge suite.');
+  }
+
+  if (examples.length === 1) {
+    const e = examples[0];
+    examples.push({
+      input: e.input,
+      output: e.output,
+      explanation: 'Verify your solution matches this format on multiple samples.'
+    });
+  }
+
+  if (examples.length === 0) {
+    examples.push({
+      input: '(See Test cases tab for stdin.)',
+      output: '(Compare with expected stdout.)',
+      explanation: 'Use visible samples in the Test cases tab for exact I/O.'
+    });
+  }
+
+  p.examples = examples.slice(0, maxEx);
+
+  const have = (p.hints || []).filter(Boolean);
+  if (have.length >= 2) {
+    p.hints = have.slice(0, 3);
+  } else {
+    const hints = [...have];
+    const solEx = p.solution?.explanation && String(p.solution.explanation).trim();
+    if (solEx && hints.length < 3) {
+      hints.push(solEx.length > 200 ? `${solEx.slice(0, 197)}…` : solEx);
+    }
+    const isSql =
+      (p.topics || []).includes('SQL') ||
+      (p.title && String(p.title).toLowerCase().includes('sql'));
+    const generic = isSql
+      ? [
+          'Stdout must match the expected format exactly — no extra column headers unless asked.',
+          'Re-read constraints; SQLite comparison and ORDER BY affect tie-breaking.',
+          'Run the visible samples locally before submitting.'
+        ]
+      : [
+          'Match the exact stdout format shown in the samples (spacing and newlines).',
+          'Re-read constraints — edge cases often sit at min/max bounds.',
+          'Use the visible test cases to sanity-check before submitting.'
+        ];
+    let gi = 0;
+    while (hints.length < 3 && gi < generic.length) {
+      if (!hints.includes(generic[gi])) hints.push(generic[gi]);
+      gi++;
+    }
+    p.hints = hints.slice(0, 3);
+  }
 }
 
 function generateBulkClones(count) {
@@ -479,5 +587,6 @@ function generateSqlBank(count) {
 module.exports = {
   generateBulkClones,
   generateSqlBank,
-  CANONICALS
+  CANONICALS,
+  ensureExamplesAndHints
 };

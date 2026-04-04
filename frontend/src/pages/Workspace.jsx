@@ -1,9 +1,18 @@
 import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import Editor from '@monaco-editor/react';
+import { Tag, Building2, Lightbulb, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api, { authHeaders } from '../services/api';
 import { getSocket } from '../services/socket';
+
+const LS_WS_LEFT = 'codejudge_ws_left_pct';
+const LS_WS_EDITOR = 'codejudge_ws_editor_frac';
+
+function readSplit(key, fallback) {
+  const n = parseFloat(localStorage.getItem(key) || '');
+  return Number.isFinite(n) ? n : fallback;
+}
 
 const LANGS = [
   { id: 'python', label: 'Python 3', monaco: 'python' },
@@ -55,6 +64,69 @@ function Workspace() {
 
   const { user } = useAuth();
   const latestSubmissionId = useRef(null);
+
+  const workspaceRef = useRef(null);
+  const rightColRef = useRef(null);
+  const dragRef = useRef(null);
+  const [leftPct, setLeftPct] = useState(() => Math.min(72, Math.max(22, readSplit(LS_WS_LEFT, 42))));
+  const [editorFrac, setEditorFrac] = useState(() => Math.min(0.88, Math.max(0.15, readSplit(LS_WS_EDITOR, 0.58))));
+  const [dragAxis, setDragAxis] = useState(null);
+  const leftPctRef = useRef(leftPct);
+  const editorFracRef = useRef(editorFrac);
+  leftPctRef.current = leftPct;
+  editorFracRef.current = editorFrac;
+
+  useEffect(() => {
+    const onMove = (e) => {
+      const d = dragRef.current;
+      if (!d) return;
+      if (d.type === 'v' && workspaceRef.current) {
+        const w = workspaceRef.current.getBoundingClientRect().width;
+        const delta = ((e.clientX - d.startX) / w) * 100;
+        setLeftPct(Math.min(72, Math.max(22, d.startLeft + delta)));
+      }
+      if (d.type === 'h' && rightColRef.current) {
+        const h = rightColRef.current.getBoundingClientRect().height;
+        if (h < 80) return;
+        const delta = (e.clientY - d.startY) / h;
+        setEditorFrac(Math.min(0.88, Math.max(0.15, d.startFrac - delta)));
+      }
+    };
+    const onUp = () => {
+      if (dragRef.current) {
+        localStorage.setItem(LS_WS_LEFT, String(Math.round(leftPctRef.current * 10) / 10));
+        localStorage.setItem(LS_WS_EDITOR, String(Math.round(editorFracRef.current * 1000) / 1000));
+      }
+      dragRef.current = null;
+      setDragAxis(null);
+      document.body.style.removeProperty('cursor');
+      document.body.style.removeProperty('user-select');
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    window.addEventListener('blur', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', onUp);
+    };
+  }, []);
+
+  const onResizeVerticalDown = (e) => {
+    e.preventDefault();
+    dragRef.current = { type: 'v', startX: e.clientX, startLeft: leftPct };
+    setDragAxis('v');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const onResizeHorizontalDown = (e) => {
+    e.preventDefault();
+    dragRef.current = { type: 'h', startY: e.clientY, startFrac: editorFrac };
+    setDragAxis('h');
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+  };
 
   useEffect(() => {
     const fetchProblem = async () => {
@@ -201,11 +273,21 @@ function Workspace() {
 
   const isPremiumLocked = problem.isPremium && (!user || !user.isPremiumStatus);
 
+  const topicsPreview = (problem.topics || []).slice(0, 2).join(', ') || 'General';
+  const companiesPreview = (problem.companies || []).slice(0, 2).join(', ') || '—';
+
   return (
-    <div className="workspace">
-      <div className="pane" style={{ flex: 1.12, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+    <div className="workspace workspace--seamless">
+      <header className="workspace-ide-bar">
+        <Link to="/problems" className="workspace-ide-back">← Problem list</Link>
+      </header>
+      <div className="workspace-ide-row" ref={workspaceRef}>
+      <div
+        className="workspace-col workspace-col--left pane"
+        style={{ width: `${leftPct}%` }}
+      >
         {contestId && (
-          <div className="lc-banner lc-banner--ok" style={{ marginBottom: '12px', padding: '10px 14px', flexShrink: 0 }}>
+          <div className="lc-banner lc-banner--ok" style={{ padding: '8px 14px', flexShrink: 0, borderBottom: '1px solid var(--lc-border)', margin: 0, borderRadius: 0 }}>
             Contest mode — submissions count toward leaderboard
             {' '}
             <Link to={`/challenges/${contestId}`} className="lc-table-link">Back to room</Link>
@@ -222,9 +304,27 @@ function Workspace() {
           {leftTab === 'description' && (
             <div>
               <h1 className="problem-title">{problem.title}</h1>
-              <div className="problem-meta">
-                <span className={`difficulty-${problem.difficulty}`}>{problem.difficulty}</span>
-                {problem.isPremium && <span className="premium-tag" style={{ marginLeft: 0 }}>Premium</span>}
+              <div className="workspace-meta-bubbles">
+                <span className={`workspace-meta-bubble workspace-meta-bubble--${String(problem.difficulty || 'easy').toLowerCase()}`}>
+                  {problem.difficulty}
+                </span>
+                <button type="button" className="workspace-meta-bubble workspace-meta-bubble--topics" title={topicsPreview}>
+                  <Tag size={14} aria-hidden />
+                  Topics
+                </button>
+                <button
+                  type="button"
+                  className={`workspace-meta-bubble workspace-meta-bubble--topics ${problem.isPremium ? 'workspace-meta-bubble--locked' : ''}`}
+                  title={companiesPreview}
+                >
+                  {problem.isPremium ? <Lock size={14} aria-hidden /> : <Building2 size={14} aria-hidden />}
+                  Companies
+                </button>
+                <button type="button" className="workspace-meta-bubble workspace-meta-bubble--topics" title="Use samples below as a starting point">
+                  <Lightbulb size={14} aria-hidden />
+                  Hint
+                </button>
+                {problem.isPremium && <span className="premium-tag" style={{ marginLeft: 4 }}>Premium</span>}
               </div>
               <div className="problem-desc" style={{ whiteSpace: 'pre-wrap' }}>
                 {problem.description}
@@ -241,6 +341,16 @@ function Workspace() {
                   </div>
                 ))}
               </div>
+              {problem.hints?.length > 0 && (
+                <div className="problem-hints" style={{ marginTop: '20px' }}>
+                  <strong>Hints:</strong>
+                  <ol style={{ marginLeft: '20px', marginTop: '10px', lineHeight: 1.55 }}>
+                    {problem.hints.map((h, idx) => (
+                      <li key={idx}>{h}</li>
+                    ))}
+                  </ol>
+                </div>
+              )}
               <div style={{ marginTop: '20px' }}>
                 <strong>Constraints:</strong>
                 <ul style={{ marginLeft: '20px', marginTop: '10px' }}>
@@ -263,19 +373,19 @@ function Workspace() {
                 <table className="problemset-table" style={{ borderSpacing: 0, width: '100%', fontSize: '13px' }}>
                   <thead>
                     <tr>
-                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Time</th>
-                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Verdict</th>
-                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Runtime</th>
-                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #333' }}>Lang</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid var(--term-border)' }}>Time</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid var(--term-border)' }}>Verdict</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid var(--term-border)' }}>Runtime</th>
+                      <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid var(--term-border)' }}>Lang</th>
                     </tr>
                   </thead>
                   <tbody>
                     {submissionHistory.map((sub) => (
                       <tr key={sub._id}>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }}>{new Date(sub.createdAt).toLocaleString()}</td>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }} className={`status-${(sub.verdict || sub.status || 'Pending').split(/[\s.]/)[0]}`}>{sub.verdict || sub.status}</td>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }}>{sub.executionTime != null ? `${sub.executionTime} ms` : '—'}</td>
-                        <td style={{ padding: '8px', borderBottom: '1px solid #333' }}>{sub.language}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid var(--term-border)' }}>{new Date(sub.createdAt).toLocaleString()}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid var(--term-border)' }} className={`status-${(sub.verdict || sub.status || 'Pending').split(/[\s.]/)[0]}`}>{sub.verdict || sub.status}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid var(--term-border)' }}>{sub.executionTime != null ? `${sub.executionTime} ms` : '—'}</td>
+                        <td style={{ padding: '8px', borderBottom: '1px solid var(--term-border)' }}>{sub.language}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -289,8 +399,8 @@ function Workspace() {
               {isPremiumLocked && (
                 <div className="premium-blur-overlay">
                   <span style={{ fontSize: '22px', fontWeight: 'bold', color: 'var(--lc-accent)' }}>Premium</span>
-                  <p style={{ marginTop: '10px', color: '#fff' }}>Unlock reference solutions and complexity notes.</p>
-                  <Link to="/store" className="btn btn-submit" style={{ marginTop: '16px', background: 'var(--lc-accent)', color: '#000', display: 'inline-block' }}>View store</Link>
+                  <p style={{ marginTop: '10px', color: 'var(--term-text-secondary)' }}>Unlock reference solutions and complexity notes.</p>
+                  <Link to="/store" className="btn btn-submit" style={{ marginTop: '16px', display: 'inline-block' }}>View store</Link>
                 </div>
               )}
               <div style={{ filter: isPremiumLocked ? 'blur(4px)' : 'none' }}>
@@ -326,8 +436,30 @@ function Workspace() {
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem', minWidth: 0 }}>
-        <div className="pane" style={{ flex: 1.5, minHeight: 0 }}>
+      <div
+        role="separator"
+        aria-orientation="vertical"
+        aria-label="Resize problem panel"
+        tabIndex={0}
+        className={`workspace-resizer workspace-resizer--vertical${dragAxis === 'v' ? ' workspace-resizer--dragging' : ''}`}
+        onMouseDown={onResizeVerticalDown}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowLeft') setLeftPct((p) => Math.min(72, Math.max(22, p - 1)));
+          if (e.key === 'ArrowRight') setLeftPct((p) => Math.min(72, Math.max(22, p + 1)));
+        }}
+      />
+
+      <div className="workspace-col workspace-col--right" ref={rightColRef}>
+        <div
+          className="pane workspace-pane"
+          style={{
+            flex: `${editorFrac} 1 0`,
+            minHeight: 120,
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
+          }}
+        >
           <div className="editor-toolbar">
             <select value={language} onChange={handleLanguageChange} className="lc-select">
               {LANGS.map((l) => (
@@ -335,37 +467,61 @@ function Workspace() {
               ))}
             </select>
           </div>
-          <Editor
-            key={`ed-${language}-${id}`}
-            height="100%"
-            language={monacoLang}
-            theme="vs-dark"
-            value={code}
-            onChange={handleCodeChange}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              scrollBeyondLastLine: false,
-              wordWrap: 'on'
-            }}
-          />
-          <div className="pane-footer" style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 16px', background: 'var(--lc-bg-layer-2)', borderTop: '1px solid var(--lc-border)' }}>
-            <span style={{ fontSize: '13px', color: 'var(--lc-text-secondary)', alignSelf: 'center' }}>
+          <div className="workspace-editor-mount">
+            <Editor
+              key={`ed-${language}-${id}`}
+              height="100%"
+              language={monacoLang}
+              theme="vs-dark"
+              value={code}
+              onChange={handleCodeChange}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                scrollBeyondLastLine: false,
+                wordWrap: 'on'
+              }}
+            />
+          </div>
+          <div className="workspace-editor-actions">
+            <span className="workspace-status">
               Status: <span className={`status-${(status || 'Idle').split(/[\s.]/)[0]}`}>{status || 'Idle'}</span>
             </span>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div className="workspace-run-group">
               <button type="button" onClick={handleRun} className="btn btn-primary">Run</button>
               <button type="button" onClick={handleSubmit} className="btn btn-submit">Submit</button>
             </div>
           </div>
         </div>
 
-        <div className="pane" style={{ flex: 0.85, overflow: 'hidden', minHeight: '200px', display: 'flex', flexDirection: 'column' }}>
+        <div
+          role="separator"
+          aria-orientation="horizontal"
+          aria-label="Resize editor and output"
+          tabIndex={0}
+          className={`workspace-resizer workspace-resizer--horizontal${dragAxis === 'h' ? ' workspace-resizer--dragging' : ''}`}
+          onMouseDown={onResizeHorizontalDown}
+          onKeyDown={(e) => {
+            if (e.key === 'ArrowUp') setEditorFrac((f) => Math.min(0.88, Math.max(0.15, f + 0.02)));
+            if (e.key === 'ArrowDown') setEditorFrac((f) => Math.min(0.88, Math.max(0.15, f - 0.02)));
+          }}
+        />
+
+        <div
+          className="pane workspace-pane"
+          style={{
+            flex: `${1 - editorFrac} 1 0`,
+            minHeight: 120,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <div className="pane-tabs">
             <button type="button" className={`pane-tab ${bottomTab === 'output' ? 'active' : ''}`} onClick={() => setBottomTab('output')}>Output</button>
             <button type="button" className={`pane-tab ${bottomTab === 'testcases' ? 'active' : ''}`} onClick={() => setBottomTab('testcases')}>Test cases</button>
           </div>
-          <div className="pane-content" style={{ background: 'var(--lc-bg-layer-1)', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+          <div className="pane-content" style={{ background: 'var(--lc-bg-layer-1)', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', borderTop: 'none' }}>
             {bottomTab === 'testcases' && (
               <div>
                 <p className="lc-muted" style={{ fontSize: '13px', marginBottom: '12px' }}>
@@ -457,6 +613,7 @@ function Workspace() {
             )}
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

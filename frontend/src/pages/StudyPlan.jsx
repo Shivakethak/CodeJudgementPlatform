@@ -3,7 +3,7 @@ import { BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 
-const COLORS = ['#f59e0b', '#10b981', '#3b82f6'];
+const COLORS = ['#ff6a00', '#3dd68c', '#5eb3ff'];
 
 const StudyPlan = () => {
   const [plans, setPlans] = useState([]);

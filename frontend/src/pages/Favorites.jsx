@@ -55,7 +55,7 @@ const Favorites = () => {
   return (
     <div className="container" style={{ padding: '30px', maxWidth: '1000px', margin: '0 auto' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '30px' }}>
-        <Star size={32} color="var(--lc-yellow)" />
+        <Star size={32} color="var(--term-accent)" />
         <div>
           <h1 style={{ color: 'var(--lc-text-primary)' }}>Favorites</h1>
           <p className="lc-muted" style={{ fontSize: '13px' }}>Starred problems sync to your account when signed in</p>
@@ -87,8 +87,8 @@ const Favorites = () => {
                   <td>
                     <Star
                       size={18}
-                      color="var(--lc-yellow)"
-                      fill="var(--lc-yellow)"
+                      color="var(--term-accent)"
+                      fill="var(--term-accent)"
                       style={{ cursor: 'pointer' }}
                       onClick={() => remove(p._id)}
                     />
