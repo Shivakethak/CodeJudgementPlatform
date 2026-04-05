@@ -1568,17 +1568,69 @@ select.lc-select option {
   50% { opacity: 0.95; }
 }
 
+/* ── Auth Page — Premium Terminal Aesthetic ─────────────── */
 .lc-auth-page {
   display: flex;
   flex: 1;
   min-height: 0;
+  position: relative;
+  overflow: hidden;
 }
 
+/* ── Background glow orbs ── */
+.auth-glow {
+  position: fixed;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+  filter: blur(100px);
+  will-change: transform;
+}
+
+.auth-glow--1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(255, 107, 0, 0.08) 0%, transparent 70%);
+  top: -10%;
+  left: -5%;
+  animation: auth-float-1 10s ease-in-out infinite;
+}
+
+.auth-glow--2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(255, 107, 0, 0.05) 0%, transparent 70%);
+  bottom: -15%;
+  right: -10%;
+  animation: auth-float-2 8s ease-in-out infinite;
+}
+
+@keyframes auth-float-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(40px, 30px) scale(1.05); }
+  66%      { transform: translate(-20px, 50px) scale(0.97); }
+}
+
+@keyframes auth-float-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-35px, -25px) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-glow--1,
+  .auth-glow--2 {
+    animation: none;
+  }
+}
+
+/* ── Panels ── */
 .lc-auth-panel {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 .lc-auth-panel--aside {
@@ -1598,6 +1650,45 @@ select.lc-select option {
   padding: 3rem;
 }
 
+/* ── Brand ── */
+.lc-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lc-brand--large .lc-brand-icon {
+  display: inline-flex;
+  color: var(--term-accent);
+}
+
+.lc-brand-name {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--term-text);
+  letter-spacing: -0.02em;
+}
+
+/* ── Typing logo + cursor ── */
+.auth-typing-logo {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+.auth-cursor {
+  color: var(--term-accent);
+  font-weight: 400;
+}
+
+.auth-cursor--blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0; }
+}
+
+/* ── Aside copy ── */
 .lc-auth-headline {
   font-size: 1.75rem;
   font-weight: 800;
@@ -1616,12 +1707,29 @@ select.lc-select option {
   line-height: 1.8;
 }
 
+.lc-auth-bullets li::marker {
+  color: var(--term-accent);
+}
+
+/* ── Glassmorphism form card ── */
 .lc-auth-form-card {
   width: 100%;
   max-width: 400px;
   padding: 2rem 1.5rem;
 }
 
+.lc-auth-form-card.auth-glass {
+  background: rgba(255, 255, 255, 0.03);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+/* ── Form title / subtitle ── */
 .lc-auth-title {
   font-size: 1.5rem;
   font-weight: 800;
@@ -1631,6 +1739,11 @@ select.lc-select option {
   margin: 8px 0 20px;
 }
 
+.lc-muted {
+  color: var(--lc-text-secondary);
+}
+
+/* ── Form layout ── */
 .lc-auth-form {
   display: flex;
   flex-direction: column;
@@ -1642,8 +1755,11 @@ select.lc-select option {
   font-weight: 600;
   color: var(--lc-text-secondary);
   margin-top: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
+/* ── Input fields with enhanced focus ── */
 .lc-input {
   width: 100%;
   padding: 11px 12px;
@@ -1652,14 +1768,122 @@ select.lc-select option {
   background: var(--lc-bg-layer-2);
   color: var(--lc-text-primary);
   font-size: 14px;
+  font-family: inherit;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease;
 }
 
 .lc-input:focus {
   outline: none;
   border-color: var(--term-accent);
-  box-shadow: var(--term-focus-ring);
+  box-shadow:
+    var(--term-focus-ring),
+    0 0 20px rgba(255, 106, 0, 0.1);
 }
 
+.lc-input.auth-input-enhanced {
+  position: relative;
+}
+
+.lc-input.auth-input-enhanced::placeholder {
+  color: var(--lc-text-tertiary);
+}
+
+/* ── Buttons ── */
+.lc-btn {
+  padding: 11px 18px;
+  border-radius: 8px;
+  font-weight: 700;
+  font-size: 14px;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.25s ease, color 0.25s ease,
+              border-color 0.25s ease, box-shadow 0.25s ease,
+              filter 0.25s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.lc-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lc-btn--accent {
+  background: var(--term-accent);
+  color: #0d0d0d;
+  border-color: var(--term-accent);
+}
+
+.lc-btn--accent:hover:not(:disabled) {
+  background: var(--term-accent-hover);
+  box-shadow: 0 0 24px rgba(255, 106, 0, 0.3);
+}
+
+.lc-btn--block {
+  width: 100%;
+  margin-top: 12px;
+}
+
+/* ── Spinner ── */
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(13, 13, 13, 0.25);
+  border-top-color: #0d0d0d;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Banners ── */
+.lc-banner {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 16px;
+  border: 1px solid;
+}
+
+.lc-banner--error {
+  background: rgba(255, 92, 92, 0.1);
+  border-color: rgba(255, 92, 92, 0.3);
+  color: var(--lc-red);
+}
+
+.lc-banner--warn {
+  background: rgba(230, 199, 90, 0.1);
+  border-color: rgba(230, 199, 90, 0.3);
+  color: var(--lc-yellow);
+}
+
+/* ── Link button ── */
+.lc-link-btn {
+  background: none;
+  border: none;
+  color: var(--term-accent);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 600;
+  padding: 0;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.lc-link-btn:hover {
+  color: var(--term-accent-hover);
+  text-decoration: underline;
+}
+
+/* ── Auth switch & back ── */
 .lc-auth-switch {
   margin-top: 1.25rem;
   text-align: center;
@@ -1672,6 +1896,11 @@ select.lc-select option {
   margin-top: 1rem;
   color: var(--lc-text-secondary);
   font-size: 13px;
+  transition: color 0.2s ease;
+}
+
+.lc-auth-back:hover {
+  color: var(--term-accent);
 }
 
 /* Profile */
